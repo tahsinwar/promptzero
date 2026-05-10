@@ -1,6 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SHOW_DELAY = 150; // don't flash for fast ops
 const MIN_VISIBLE = 300; // once visible, stay at least this long
@@ -12,21 +12,21 @@ export function GlobalLoader() {
   const busy = isNavigating || isFetching > 0 || isMutating > 0;
 
   const [visible, setVisible] = useState(false);
+  const shownAtRef = useRef(0);
 
   useEffect(() => {
     let showTimer: ReturnType<typeof setTimeout> | null = null;
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
-    let shownAt = 0;
 
     if (busy) {
       if (!visible) {
         showTimer = setTimeout(() => {
-          shownAt = Date.now();
+          shownAtRef.current = Date.now();
           setVisible(true);
         }, SHOW_DELAY);
       }
     } else if (visible) {
-      const elapsed = Date.now() - shownAt;
+      const elapsed = Date.now() - shownAtRef.current;
       const remaining = Math.max(0, MIN_VISIBLE - elapsed);
       hideTimer = setTimeout(() => setVisible(false), remaining);
     }
