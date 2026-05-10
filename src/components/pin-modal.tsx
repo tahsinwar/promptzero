@@ -37,10 +37,7 @@ export function PinModal({
         >
           <motion.div
             className="vault-card rounded-2xl p-6 w-full max-w-sm relative"
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={controls}
-            exit={{ scale: 0.96, opacity: 0 }}
-            style={{ scale: 1, opacity: 1 }}
+            initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
             <button onClick={onClose} aria-label="Close" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
@@ -51,7 +48,7 @@ export function PinModal({
             </div>
             <h2 className="text-lg font-bold">Locked prompt</h2>
             <p className="mt-1 text-sm text-muted-foreground">Enter the PIN to copy this prompt.</p>
-            <form onSubmit={submit} className="mt-4 space-y-3">
+            <motion.form animate={controls} onSubmit={submit} className="mt-4 space-y-3">
               <input
                 autoFocus type="password" inputMode="numeric" value={pin}
                 onChange={(e) => { setPin(e.target.value); setError(null); }}
@@ -62,7 +59,7 @@ export function PinModal({
               <button type="submit" className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90">
                 Unlock
               </button>
-            </form>
+            </motion.form>
           </motion.div>
         </motion.div>
       )}
