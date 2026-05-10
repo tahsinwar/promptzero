@@ -25,7 +25,7 @@ function PromptsList() {
   const [shareFor, setShareFor] = useState<{ id: string; title: string } | null>(null);
   const [confirmPublish, setConfirmPublish] = useState<{ id: string; title: string; publish: boolean } | null>(null);
   const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -241,7 +241,7 @@ function PromptsList() {
                       })()}
                       <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={duplicate.isPending} onClick={() => setConfirmDuplicate({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
-                      <button disabled={remove.isPending} onClick={() => setConfirmDelete({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
+                      <button disabled={remove.isPending} onClick={() => setConfirmDelete({ id: p.id, title: p.title, status: p.status ?? "draft" })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
                   </td>
                 </tr>
@@ -362,6 +362,13 @@ function PromptsList() {
             <p className="mt-2 text-sm text-muted-foreground">
               Permanently delete <span className="text-foreground font-medium">"{confirmDelete.title}"</span>. This action can't be undone.
             </p>
+            <div className="mt-3 flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Current visibility</span>
+              <StatusBadge status={confirmDelete.status} />
+              {confirmDelete.status === "published" && (
+                <span className="text-destructive">· will be removed from the public site</span>
+              )}
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <button disabled={remove.isPending} onClick={() => setConfirmDelete(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
               <button
