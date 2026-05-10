@@ -25,6 +25,7 @@ function PromptsList() {
   const [shareFor, setShareFor] = useState<{ id: string; title: string } | null>(null);
   const [confirmPublish, setConfirmPublish] = useState<{ id: string; title: string; publish: boolean } | null>(null);
   const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -121,7 +122,7 @@ function PromptsList() {
   });
 
   const togglePublish = useMutation({
-    mutationFn: async (p: { id: string; publish: boolean }) => {
+    mutationFn: async (p: { id: string; publish: boolean; title: string }) => {
       const { error } = await supabase
         .from("prompts")
         .update({ status: p.publish ? "published" : "draft", is_published: p.publish })
@@ -141,12 +142,14 @@ function PromptsList() {
       );
       return { previous };
     },
-    onError: (e: any, _p, ctx) => {
+    onError: (e: any, p, ctx) => {
       if (ctx?.previous) qc.setQueryData(["admin-prompts"], ctx.previous);
-      toast.error(e.message);
+      toast.error(`Failed to ${p.publish ? "publish" : "move to draft"} "${p.title}"`, {
+        description: e.message,
+      });
     },
     onSuccess: (p) => {
-      toast.success(p.publish ? "Published" : "Unpublished");
+      toast.success(`"${p.title}" is now ${p.publish ? "Published" : "Draft"}`);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["admin-prompts"] });
@@ -238,7 +241,7 @@ function PromptsList() {
                       })()}
                       <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={duplicate.isPending} onClick={() => setConfirmDuplicate({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
-                      <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
+                      <button disabled={remove.isPending} onClick={() => setConfirmDelete({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
                   </td>
                 </tr>
@@ -314,7 +317,7 @@ function PromptsList() {
               <button
                 disabled={togglePublish.isPending}
                 onClick={() => {
-                  const payload = { id: confirmPublish.id, publish: confirmPublish.publish };
+                  const payload = { id: confirmPublish.id, publish: confirmPublish.publish, title: confirmPublish.title };
                   togglePublish.mutate(payload, { onSettled: () => setConfirmPublish(null) });
                 }}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60 ${confirmPublish.publish ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground border border-border"}`}
@@ -346,6 +349,30 @@ function PromptsList() {
               >
                 {duplicate.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Duplicate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => !remove.isPending && setConfirmDelete(null)}>
+          <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Delete prompt?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Permanently delete <span className="text-foreground font-medium">"{confirmDelete.title}"</span>. This action can't be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button disabled={remove.isPending} onClick={() => setConfirmDelete(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
+              <button
+                disabled={remove.isPending}
+                onClick={() => {
+                  remove.mutate(confirmDelete.id, { onSettled: () => setConfirmDelete(null) });
+                }}
+                className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {remove.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Delete
               </button>
             </div>
           </div>
