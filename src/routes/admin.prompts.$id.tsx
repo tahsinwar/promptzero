@@ -160,7 +160,8 @@ function EditPrompt() {
   );
 }
 
-function Input({ label, value, onChange, placeholder, required }: any) {
+type InputProps = { label: string; value: string | null | undefined; onChange: (v: string) => void; placeholder?: string; required?: boolean };
+function Input({ label, value, onChange, placeholder, required }: InputProps) {
   return (
     <label className="block">
       <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}{required && " *"}</span>
@@ -170,7 +171,8 @@ function Input({ label, value, onChange, placeholder, required }: any) {
   );
 }
 
-function Textarea({ label, value, onChange, rows = 4, required }: any) {
+type TextareaProps = { label: string; value: string | null | undefined; onChange: (v: string) => void; rows?: number; required?: boolean };
+function Textarea({ label, value, onChange, rows = 4, required }: TextareaProps) {
   return (
     <label className="block">
       <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}{required && " *"}</span>

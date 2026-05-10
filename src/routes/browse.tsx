@@ -55,7 +55,7 @@ function Browse() {
         <div className="flex flex-wrap gap-2">
           <Chip active={cat === null} onClick={() => setCat(null)}>All categories</Chip>
           {cats?.map((c) => (
-            <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color}>{c.name}</Chip>
+            <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color ?? undefined}>{c.name}</Chip>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">

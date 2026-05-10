@@ -6,6 +6,7 @@ import { Sparkles, Eye, Copy, ArrowRight, Flame, Zap, Brain } from "lucide-react
 
 export const Route = createFileRoute("/")({
   component: Home,
+  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s.q === "string" ? s.q : undefined }),
   head: () => ({ meta: [{ title: "Prompt Vault — Best AI Prompts" }] }),
 });
 

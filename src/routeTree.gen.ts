@@ -9,11 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SavedRouteImport } from './routes/saved'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as PromptsSlugRouteImport } from './routes/prompts.$slug'
+import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as AdminTagsRouteImport } from './routes/admin.tags'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminQuestionsRouteImport } from './routes/admin.questions'
@@ -23,6 +26,16 @@ import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminPromptsIndexRouteImport } from './routes/admin.prompts.index'
 import { Route as AdminPromptsIdRouteImport } from './routes/admin.prompts.$id'
 
+const SavedRoute = SavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrowseRoute = BrowseRouteImport.update({
   id: '/browse',
   path: '/browse',
@@ -46,6 +59,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PromptsSlugRoute = PromptsSlugRouteImport.update({
   id: '/prompts/$slug',
   path: '/prompts/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PSlugRoute = PSlugRouteImport.update({
+  id: '/p/$slug',
+  path: '/p/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTagsRoute = AdminTagsRouteImport.update({
@@ -93,12 +111,15 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tags': typeof AdminTagsRoute
+  '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
@@ -107,11 +128,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tags': typeof AdminTagsRoute
+  '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
@@ -122,12 +146,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
   '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tags': typeof AdminTagsRoute
+  '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
@@ -139,12 +166,15 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/browse'
+    | '/login'
+    | '/saved'
     | '/admin/categories'
     | '/admin/comments'
     | '/admin/prompts'
     | '/admin/questions'
     | '/admin/settings'
     | '/admin/tags'
+    | '/p/$slug'
     | '/prompts/$slug'
     | '/admin/'
     | '/admin/prompts/$id'
@@ -153,11 +183,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/browse'
+    | '/login'
+    | '/saved'
     | '/admin/categories'
     | '/admin/comments'
     | '/admin/questions'
     | '/admin/settings'
     | '/admin/tags'
+    | '/p/$slug'
     | '/prompts/$slug'
     | '/admin'
     | '/admin/prompts/$id'
@@ -167,12 +200,15 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/browse'
+    | '/login'
+    | '/saved'
     | '/admin/categories'
     | '/admin/comments'
     | '/admin/prompts'
     | '/admin/questions'
     | '/admin/settings'
     | '/admin/tags'
+    | '/p/$slug'
     | '/prompts/$slug'
     | '/admin/'
     | '/admin/prompts/$id'
@@ -183,11 +219,28 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   BrowseRoute: typeof BrowseRoute
+  LoginRoute: typeof LoginRoute
+  SavedRoute: typeof SavedRoute
+  PSlugRoute: typeof PSlugRoute
   PromptsSlugRoute: typeof PromptsSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/saved': {
+      id: '/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/browse': {
       id: '/browse'
       path: '/browse'
@@ -221,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/prompts/$slug'
       fullPath: '/prompts/$slug'
       preLoaderRoute: typeof PromptsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$slug': {
+      id: '/p/$slug'
+      path: '/p/$slug'
+      fullPath: '/p/$slug'
+      preLoaderRoute: typeof PSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/tags': {
@@ -322,18 +382,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   BrowseRoute: BrowseRoute,
+  LoginRoute: LoginRoute,
+  SavedRoute: SavedRoute,
+  PSlugRoute: PSlugRoute,
   PromptsSlugRoute: PromptsSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

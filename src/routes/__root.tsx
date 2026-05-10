@@ -3,7 +3,9 @@ import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
-import { Vault, Sparkles, ShieldCheck } from "lucide-react";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ThemeProvider } from "@/hooks/use-theme";
+import { SiteLayout } from "@/components/layout/site-layout";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -57,46 +59,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head><HeadContent /></head>
       <body>{children}<Scripts /></body>
     </html>
-  );
-}
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-border/50 bg-background/70 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 ring-1 ring-primary/30 group-hover:shadow-glow transition-shadow">
-            <Vault className="h-5 w-5 text-primary" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">Prompt<span className="gradient-text">Vault</span></span>
-        </Link>
-        <nav className="flex items-center gap-1 text-sm">
-          <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: "text-foreground" }} className="px-3 py-2 rounded-md text-muted-foreground hover:text-foreground transition-colors">Home</Link>
-          <Link to="/browse" activeProps={{ className: "text-foreground" }} className="px-3 py-2 rounded-md text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
-          <Link to="/admin" className="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
-            <ShieldCheck className="h-3.5 w-3.5" /> Admin
-          </Link>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="mt-32 border-t border-border/50">
-      <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span>Prompt Vault — Best AI Prompts Collection</span>
-        </div>
-        <span>© {new Date().getFullYear()}</span>
-      </div>
-    </footer>
   );
 }
 
@@ -104,10 +70,14 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <Header />
-      <main className="min-h-[calc(100vh-180px)]"><Outlet /></main>
-      <Footer />
-      <Toaster theme="dark" richColors position="bottom-right" />
+      <ThemeProvider>
+        <AuthProvider>
+          <SiteLayout>
+            <Outlet />
+          </SiteLayout>
+          <Toaster richColors position="bottom-right" />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
