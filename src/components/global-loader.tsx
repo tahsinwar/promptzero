@@ -1,12 +1,43 @@
 import { useRouterState } from "@tanstack/react-router";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+
+const SHOW_DELAY = 150; // don't flash for fast ops
+const MIN_VISIBLE = 300; // once visible, stay at least this long
 
 export function GlobalLoader() {
   const isNavigating = useRouterState({ select: (s) => s.isLoading || s.isTransitioning });
   const isFetching = useIsFetching();
   const isMutating = useIsMutating();
-  const active = isNavigating || isFetching > 0 || isMutating > 0;
-  if (!active) return null;
+  const busy = isNavigating || isFetching > 0 || isMutating > 0;
+
+  const [visible, setVisible] = useState(false);
+  const shownAtRef = useRef(0);
+
+  useEffect(() => {
+    let showTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    if (busy) {
+      if (!visible) {
+        showTimer = setTimeout(() => {
+          shownAtRef.current = Date.now();
+          setVisible(true);
+        }, SHOW_DELAY);
+      }
+    } else if (visible) {
+      const elapsed = Date.now() - shownAtRef.current;
+      const remaining = Math.max(0, MIN_VISIBLE - elapsed);
+      hideTimer = setTimeout(() => setVisible(false), remaining);
+    }
+
+    return () => {
+      if (showTimer) clearTimeout(showTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [busy, visible]);
+
+  if (!visible) return null;
   return (
     <>
       <div className="pointer-events-none fixed left-0 right-0 top-0 z-[100] h-0.5 overflow-hidden bg-primary/20">

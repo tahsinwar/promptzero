@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle } from "lucide-react";
+import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle, Loader2 } from "lucide-react";
+import { AdminTableSkeleton } from "@/components/admin-skeletons";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { z } from "zod";
@@ -120,6 +121,9 @@ function Page() {
                 </tr>
               </thead>
               <tbody>
+                {comments.isLoading && !comments.data && (
+                  <tr><td colSpan={6} className="p-0"><AdminTableSkeleton rows={5} cols={6} /></td></tr>
+                )}
                 {filteredComments.map((c: any) => (
                   <tr key={c.id} className="border-t border-border/60 align-top">
                     <td className="p-3">
@@ -140,13 +144,13 @@ function Page() {
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
                         {!c.is_approved && (
-                          <button title="Approve" onClick={() => updateC.mutate({ id: c.id, patch: { is_approved: true } })} className="rounded-md bg-primary/15 text-primary p-2 hover:bg-primary/25"><Check className="h-4 w-4" /></button>
+                          <button disabled={updateC.isPending} title="Approve" onClick={() => updateC.mutate({ id: c.id, patch: { is_approved: true } })} className="rounded-md bg-primary/15 text-primary p-2 hover:bg-primary/25 disabled:opacity-60"><Check className="h-4 w-4" /></button>
                         )}
-                        <button title="Pin" onClick={() => updateC.mutate({ id: c.id, patch: { is_pinned: !c.is_pinned } })} className={`rounded-md p-2 ${c.is_pinned ? "bg-accent/15 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}><Pin className="h-4 w-4" /></button>
+                        <button disabled={updateC.isPending} title="Pin" onClick={() => updateC.mutate({ id: c.id, patch: { is_pinned: !c.is_pinned } })} className={`rounded-md p-2 disabled:opacity-60 ${c.is_pinned ? "bg-accent/15 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}><Pin className="h-4 w-4" /></button>
                         {c.ip_address && (
-                          <button title="Block IP" onClick={() => confirm(`Block ${c.ip_address}?`) && blockIP.mutate(c.ip_address)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary"><Ban className="h-4 w-4" /></button>
+                          <button disabled={blockIP.isPending} title="Block IP" onClick={() => confirm(`Block ${c.ip_address}?`) && blockIP.mutate(c.ip_address)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60"><Ban className="h-4 w-4" /></button>
                         )}
-                        <button title="Delete" onClick={() => confirm("Delete comment?") && removeC.mutate(c.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+                        <button disabled={removeC.isPending} title="Delete" onClick={() => confirm("Delete comment?") && removeC.mutate(c.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60">{removeC.isPending && removeC.variables === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                       </div>
                     </td>
                   </tr>
@@ -172,8 +176,11 @@ function Page() {
               </tr>
             </thead>
             <tbody>
+              {questions.isLoading && !questions.data && (
+                <tr><td colSpan={6} className="p-0"><AdminTableSkeleton rows={4} cols={6} /></td></tr>
+              )}
               {(questions.data ?? []).map((q: any) => (
-                <QRow key={q.id} q={q} onSave={updateQ.mutate} onDelete={removeQ.mutate} />
+                <QRow key={q.id} q={q} onSave={updateQ.mutate} onDelete={removeQ.mutate} pendingSave={updateQ.isPending} pendingDelete={removeQ.isPending} />
               ))}
               {questions.data && questions.data.length === 0 && (
                 <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No questions.</td></tr>
@@ -199,7 +206,7 @@ function TabLink({ tab, active, icon: Icon, label, badge }: any) {
   );
 }
 
-function QRow({ q, onSave, onDelete }: any) {
+function QRow({ q, onSave, onDelete, pendingSave, pendingDelete }: any) {
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState(q.answer ?? "");
   return (
@@ -223,7 +230,7 @@ function QRow({ q, onSave, onDelete }: any) {
             {q.is_published && (
               <button onClick={() => { onSave({ id: q.id, patch: { is_published: false } }); toast.success("Unpublished"); }} className="rounded-md border border-border px-2.5 py-1 text-xs">Unpublish</button>
             )}
-            <button onClick={() => confirm("Delete question?") && onDelete(q.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
+            <button disabled={pendingDelete} onClick={() => confirm("Delete question?") && onDelete(q.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
           </div>
         </td>
       </tr>
@@ -235,11 +242,11 @@ function QRow({ q, onSave, onDelete }: any) {
             <div className="mt-2 flex gap-2">
               <button
                 onClick={() => { onSave({ id: q.id, patch: { answer, is_published: true } }); toast.success("Published"); setOpen(false); }}
-                disabled={!answer.trim()}
+                disabled={!answer.trim() || pendingSave}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50">
-                <Send className="h-3.5 w-3.5" />Publish answer
+                {pendingSave ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Publish answer
               </button>
-              <button onClick={() => { onSave({ id: q.id, patch: { answer, is_published: false } }); toast.success("Saved"); }} className="rounded-lg border border-border px-3 py-1.5 text-xs">Save draft</button>
+              <button disabled={pendingSave} onClick={() => { onSave({ id: q.id, patch: { answer, is_published: false } }); toast.success("Saved"); }} className="rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-60">Save draft</button>
             </div>
           </td>
         </tr>

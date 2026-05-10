@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { Save, Eye, EyeOff, X, Lock } from "lucide-react";
+import { Save, Eye, EyeOff, X, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminFormSkeleton } from "@/components/admin-skeletons";
 
 export const Route = createFileRoute("/admin/settings")({ component: Page });
 
@@ -25,7 +26,7 @@ function applyAccent(color?: string) {
 
 function Page() {
   const qc = useQueryClient();
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["admin-settings"],
     staleTime: 10 * 60 * 1000,
     queryFn: async () => (await supabase.from("admin_settings").select("*").eq("id", 1).maybeSingle()).data,
@@ -59,6 +60,7 @@ function Page() {
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
+      {isLoading && !data ? <AdminFormSkeleton /> : (
       <div className="vault-card rounded-xl p-6 space-y-5">
         <Field label="Site name" value={s.site_name ?? ""} onChange={(v) => setS({ ...s, site_name: v })} />
         <Field label="Tagline" value={s.tagline ?? ""} onChange={(v) => setS({ ...s, tagline: v })} />
@@ -139,10 +141,11 @@ function Page() {
         <div className="pt-2">
           <button onClick={() => save.mutate()} disabled={save.isPending}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
-            <Save className="h-4 w-4" /> Save settings
+            {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{save.isPending ? "Saving…" : "Save settings"}
           </button>
         </div>
       </div>
+      )}
 
       <PasswordSection />
     </div>
@@ -191,7 +194,7 @@ function PasswordSection() {
       <Field type="password" label="New password" value={next} onChange={setNext} />
       <Field type="password" label="Confirm new password" value={confirm} onChange={setConfirm} />
       <button disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
-        <Save className="h-4 w-4" /> Update password
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{busy ? "Updating…" : "Update password"}
       </button>
     </form>
   );
