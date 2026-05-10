@@ -107,8 +107,42 @@ function PromptDetail() {
     else setUnlocked(true);
   }, [prompt]);
 
+  // SEO: dynamic title & description from loaded data
+  useEffect(() => {
+    if (!prompt || typeof document === "undefined") return;
+    document.title = `${prompt.title} — Prompt Vault`;
+    const desc = (prompt.description ?? prompt.content ?? "").slice(0, 160);
+    let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", desc);
+  }, [prompt]);
+
   if (isLoading) {
-    return <div className="mx-auto max-w-5xl px-6 py-16"><div className="vault-card rounded-2xl p-10 text-sm text-muted-foreground">Loading…</div></div>;
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-4">
+            <div className="h-5 w-24 rounded bg-muted/60 animate-pulse" />
+            <div className="h-9 w-3/4 rounded bg-muted/60 animate-pulse" />
+            <div className="h-4 w-full rounded bg-muted/40 animate-pulse" />
+            <div className="h-4 w-2/3 rounded bg-muted/40 animate-pulse" />
+            <div className="vault-card rounded-2xl p-6 space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="vault-card rounded-2xl p-4 h-32 animate-pulse" />
+            <div className="vault-card rounded-2xl p-4 h-40 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
   if (error || !data || !prompt) {
     return (

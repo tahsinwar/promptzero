@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Lock, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useAnimation } from "framer-motion";
 
 export function PinModal({
   open,
@@ -15,13 +15,15 @@ export function PinModal({
 }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const controls = useAnimation();
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (pin === expectedPin) {
       setPin(""); setError(null); onUnlock();
     } else {
       setError("Incorrect PIN");
+      await controls.start({ x: [0, -10, 10, -8, 8, -4, 4, 0], transition: { duration: 0.45 } });
     }
   };
 
@@ -46,7 +48,7 @@ export function PinModal({
             </div>
             <h2 className="text-lg font-bold">Locked prompt</h2>
             <p className="mt-1 text-sm text-muted-foreground">Enter the PIN to copy this prompt.</p>
-            <form onSubmit={submit} className="mt-4 space-y-3">
+            <motion.form animate={controls} onSubmit={submit} className="mt-4 space-y-3">
               <input
                 autoFocus type="password" inputMode="numeric" value={pin}
                 onChange={(e) => { setPin(e.target.value); setError(null); }}
@@ -57,7 +59,7 @@ export function PinModal({
               <button type="submit" className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90">
                 Unlock
               </button>
-            </form>
+            </motion.form>
           </motion.div>
         </motion.div>
       )}

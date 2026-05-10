@@ -101,6 +101,12 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
   const cat = p.categories;
   const catColor = cat?.color ?? undefined;
   return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: "easeOut" }}
+      className="h-full"
+    >
     <Link
       to="/p/$slug"
       params={{ slug: p.slug }}
@@ -143,6 +149,7 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
         </span>
       </div>
     </Link>
+    </motion.div>
   );
 }
 
