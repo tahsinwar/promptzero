@@ -44,7 +44,8 @@ function Settings() {
   );
 }
 
-function Field({ label, value, onChange, type = "text" }: any) {
+type FieldProps = { label: string; value: string | number | null | undefined; onChange: (v: string) => void; type?: string };
+function Field({ label, value, onChange, type = "text" }: FieldProps) {
   return (
     <label className="block">
       <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
