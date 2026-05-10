@@ -427,6 +427,12 @@ function EditPrompt() {
           <pre className="mt-4 text-xs font-mono whitespace-pre-wrap break-words rounded-lg bg-secondary/40 p-3 leading-relaxed">{form.content || "Prompt content will appear here…"}</pre>
         </div>
       </aside>
+      <ShareModal
+        open={shareOpen}
+        url={typeof window !== "undefined" && form.slug ? `${window.location.origin}/p/${form.slug}` : ""}
+        title={form.title}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }
