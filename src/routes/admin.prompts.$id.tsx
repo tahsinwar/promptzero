@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2 } from "lucide-react";
+import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { toast } from "sonner";
 import bcrypt from "bcryptjs";
 
@@ -67,7 +68,7 @@ function EditPrompt() {
     queryFn: async () => (await supabase.from("tags").select("*").order("name")).data ?? [],
   });
 
-  const { data: loaded } = useQuery({
+  const { data: loaded, isLoading: editLoading } = useQuery({
     queryKey: ["edit-prompt", id], enabled: !isNew,
     queryFn: async () => {
       const [p, t, v, l, q] = await Promise.all([
@@ -248,21 +249,22 @@ function EditPrompt() {
           <h1 className="text-3xl font-bold">{isNew ? "New prompt" : "Edit prompt"}</h1>
           <div className="flex flex-wrap gap-2">
             {!isNew && (
-              <button onClick={() => duplicate.mutate()} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
-                <CopyIcon className="h-4 w-4" /> Duplicate
+              <button disabled={duplicate.isPending} onClick={() => duplicate.mutate()} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary disabled:opacity-60">
+                {duplicate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />} Duplicate
               </button>
             )}
             {!isNew && (
-              <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 text-destructive px-3 py-2 text-sm hover:bg-destructive/10">
+              <button disabled={remove.isPending} onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 text-destructive px-3 py-2 text-sm hover:bg-destructive/10 disabled:opacity-60">
                 <Trash2 className="h-4 w-4" /> Delete
               </button>
             )}
             <button onClick={() => save.mutate()} disabled={save.isPending} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow disabled:opacity-50">
-              <Save className="h-4 w-4" /> {save.isPending ? "Saving…" : "Save"}
+              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {save.isPending ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
 
+        {!isNew && editLoading && !loaded ? <AdminFormSkeleton /> : (
         <div className="vault-card rounded-xl p-5 space-y-4">
           <Field label="Title" required>
             <input value={form.title} onChange={(e) => onTitleChange(e.target.value)} className={inputCls} />
@@ -371,6 +373,7 @@ function EditPrompt() {
             </Field>
           )}
         </div>
+        )}
 
         <RelatedEditor title="Videos" items={videos} setItems={setVideos} disabled={isNew}
           fields={[{ key: "youtube_url", label: "YouTube URL", required: true }, { key: "title", label: "Title" }]}
@@ -396,7 +399,7 @@ function EditPrompt() {
               <p className="mt-2 text-sm text-muted-foreground">This permanently deletes "{form.title}".</p>
               <div className="mt-4 flex justify-end gap-2">
                 <button onClick={() => setConfirmDelete(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
-                <button onClick={() => remove.mutate()} className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold">Delete</button>
+                <button disabled={remove.isPending} onClick={() => remove.mutate()} className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">{remove.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Delete</button>
               </div>
             </div>
           </div>
