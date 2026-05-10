@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Delete } from "lucide-react";
+import { Lock, Delete, Loader2 } from "lucide-react";
 import bcrypt from "bcryptjs";
 
 const STORAGE_KEY = "unlocked_prompts";
+const LOCKOUT_KEY = "pin_lockout_until";
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 30_000;
 
 export function isUnlocked(promptId: string): boolean {
   if (typeof window === "undefined") return false;
@@ -40,6 +43,17 @@ export function PinLockModal({
   const [lockUntil, setLockUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
   const [shake, setShake] = useState(0);
+  const [verifying, setVerifying] = useState(false);
+  const submittingRef = useRef(false);
+
+  // Restore lockout from sessionStorage on open
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    try {
+      const saved = Number(sessionStorage.getItem(LOCKOUT_KEY) ?? "0");
+      if (saved > Date.now()) setLockUntil(saved);
+    } catch { /* noop */ }
+  }, [open]);
 
   useEffect(() => {
     if (!lockUntil) return;
@@ -51,36 +65,74 @@ export function PinLockModal({
   const remaining = Math.max(0, Math.ceil((lockUntil - now) / 1000));
 
   const press = (digit: string) => {
-    if (locked || pin.length >= 5) return;
-    setPin(pin + digit);
+    if (locked || verifying) return;
+    setPin((cur) => (cur.length >= 5 ? cur : cur + digit));
     setError(null);
   };
-  const back = () => { if (!locked) { setPin(pin.slice(0, -1)); setError(null); } };
+  const back = () => { if (!locked && !verifying) { setPin((p) => p.slice(0, -1)); setError(null); } };
 
-  const submit = async () => {
-    if (locked || pin.length === 0) return;
+  const submit = async (value?: string) => {
+    const candidate = value ?? pin;
+    if (locked || candidate.length === 0 || submittingRef.current) return;
+    submittingRef.current = true;
+    setVerifying(true);
     let ok = false;
-    if (pinHash) {
-      try { ok = await bcrypt.compare(pin, pinHash); } catch { ok = false; }
-    } else {
-      ok = pin === fallbackPin;
-    }
+    try {
+      if (pinHash) {
+        ok = await bcrypt.compare(candidate, pinHash);
+      } else {
+        ok = candidate === fallbackPin;
+      }
+    } catch { ok = false; }
+    setVerifying(false);
+    submittingRef.current = false;
     if (ok) {
       markUnlocked(promptId);
       setPin(""); setError(null); setAttempts(0);
+      try { sessionStorage.removeItem(LOCKOUT_KEY); } catch { /* noop */ }
       onUnlock();
     } else {
       const next = attempts + 1;
       setAttempts(next);
       setShake((s) => s + 1);
-      setError("Incorrect PIN");
+      const left = MAX_ATTEMPTS - next;
+      setError(left > 0 ? `Incorrect PIN · ${left} attempt${left === 1 ? "" : "s"} left` : "Incorrect PIN");
       setPin("");
-      if (next >= 5) {
-        setLockUntil(Date.now() + 30000);
+      if (next >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_MS;
+        setLockUntil(until);
+        try { sessionStorage.setItem(LOCKOUT_KEY, String(until)); } catch { /* noop */ }
         setAttempts(0);
       }
     }
   };
+
+  // Auto-submit when 5 digits entered
+  useEffect(() => {
+    if (open && pin.length === 5 && !locked && !verifying) {
+      submit(pin);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, open, locked]);
+
+  // Keyboard support
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (locked || verifying) return;
+      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
+      else if (e.key === "Backspace") { e.preventDefault(); back(); }
+      else if (e.key === "Enter") { e.preventDefault(); submit(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, locked, verifying, pin]);
+
+  // Reset state when reopening
+  useEffect(() => {
+    if (open) { setPin(""); setError(null); }
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -105,29 +157,30 @@ export function PinLockModal({
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className={`h-3 w-3 rounded-full transition-colors ${i < pin.length ? "bg-primary shadow-glow" : "bg-muted"}`}
+                  className={`h-3 w-3 rounded-full transition-colors ${error ? "bg-destructive" : i < pin.length ? "bg-primary shadow-glow" : "bg-muted"}`}
                 />
               ))}
             </div>
 
-            {error && <div className="mt-3 text-xs text-destructive text-center">{error}</div>}
-            {locked && <div className="mt-3 text-xs text-destructive text-center">Too many attempts. Try again in {remaining}s</div>}
+            {verifying && <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Verifying…</div>}
+            {error && !verifying && <div className="mt-3 text-xs text-destructive text-center">{error}</div>}
+            {locked && <div className="mt-3 text-xs text-destructive text-center">Too many attempts · try again in {remaining}s</div>}
 
             <div className="mt-5 grid grid-cols-3 gap-2">
               {["1","2","3","4","5","6","7","8","9"].map((d) => (
                 <button
                   key={d}
                   onClick={() => press(d)}
-                  disabled={locked}
+                  disabled={locked || verifying}
                   className="h-12 rounded-lg bg-secondary hover:bg-secondary/70 font-semibold text-lg disabled:opacity-40"
                 >{d}</button>
               ))}
-              <button onClick={back} disabled={locked} className="h-12 rounded-lg bg-secondary hover:bg-secondary/70 grid place-items-center disabled:opacity-40">
+              <button onClick={back} disabled={locked || verifying} className="h-12 rounded-lg bg-secondary hover:bg-secondary/70 grid place-items-center disabled:opacity-40">
                 <Delete className="h-4 w-4" />
               </button>
-              <button onClick={() => press("0")} disabled={locked} className="h-12 rounded-lg bg-secondary hover:bg-secondary/70 font-semibold text-lg disabled:opacity-40">0</button>
-              <button onClick={submit} disabled={locked || pin.length === 0} className="h-12 rounded-lg bg-primary text-primary-foreground font-semibold shadow-glow disabled:opacity-40">
-                OK
+              <button onClick={() => press("0")} disabled={locked || verifying} className="h-12 rounded-lg bg-secondary hover:bg-secondary/70 font-semibold text-lg disabled:opacity-40">0</button>
+              <button onClick={() => submit()} disabled={locked || verifying || pin.length === 0} className="h-12 rounded-lg bg-primary text-primary-foreground font-semibold shadow-glow disabled:opacity-40 inline-flex items-center justify-center gap-1.5">
+                {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "OK"}
               </button>
             </div>
           </motion.div>
