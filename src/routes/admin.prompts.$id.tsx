@@ -275,7 +275,28 @@ function EditPrompt() {
                 {duplicate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />} Duplicate
               </button>
             )}
-            {!isNew && form.slug && (
+            {!isNew && (
+              <button
+                disabled={togglePublish.isPending}
+                onClick={() => togglePublish.mutate()}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-60 ${
+                  form.status === "published"
+                    ? "border border-border hover:bg-secondary text-muted-foreground"
+                    : "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/25"
+                }`}
+                title={form.status === "published" ? "Unpublish" : "Publish"}
+              >
+                {togglePublish.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : form.status === "published" ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Globe className="h-4 w-4" />
+                )}
+                {form.status === "published" ? "Unpublish" : "Publish"}
+              </button>
+            )}
+            {!isNew && id && (
               <button onClick={() => setShareOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
                 <Share2 className="h-4 w-4" /> Share
               </button>
@@ -449,7 +470,7 @@ function EditPrompt() {
       </aside>
       <ShareModal
         open={shareOpen}
-        url={typeof window !== "undefined" && form.slug ? `${window.location.origin}/p/${form.slug}` : ""}
+        url={typeof window !== "undefined" && id ? `${window.location.origin}/s/${String(id).slice(0, 6)}` : ""}
         title={form.title}
         onClose={() => setShareOpen(false)}
       />
