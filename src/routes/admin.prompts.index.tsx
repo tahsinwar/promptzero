@@ -354,6 +354,30 @@ function PromptsList() {
           </div>
         </div>
       )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => !remove.isPending && setConfirmDelete(null)}>
+          <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Delete prompt?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Permanently delete <span className="text-foreground font-medium">"{confirmDelete.title}"</span>. This action can't be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button disabled={remove.isPending} onClick={() => setConfirmDelete(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
+              <button
+                disabled={remove.isPending}
+                onClick={() => {
+                  remove.mutate(confirmDelete.id, { onSettled: () => setConfirmDelete(null) });
+                }}
+                className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {remove.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
