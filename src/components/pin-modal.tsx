@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Lock, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useAnimation } from "framer-motion";
 
 export function PinModal({
   open,
@@ -15,13 +15,15 @@ export function PinModal({
 }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const controls = useAnimation();
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (pin === expectedPin) {
       setPin(""); setError(null); onUnlock();
     } else {
       setError("Incorrect PIN");
+      await controls.start({ x: [0, -10, 10, -8, 8, -4, 4, 0], transition: { duration: 0.45 } });
     }
   };
 
@@ -35,7 +37,10 @@ export function PinModal({
         >
           <motion.div
             className="vault-card rounded-2xl p-6 w-full max-w-sm relative"
-            initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+            initial={{ scale: 0.96, opacity: 0 }}
+            animate={controls}
+            exit={{ scale: 0.96, opacity: 0 }}
+            style={{ scale: 1, opacity: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
             <button onClick={onClose} aria-label="Close" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
