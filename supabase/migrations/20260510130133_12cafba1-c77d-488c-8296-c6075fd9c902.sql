@@ -1,0 +1,2 @@
+ALTER TABLE public.prompts ADD COLUMN IF NOT EXISTS short_code TEXT GENERATED ALWAYS AS (substring(id::text, 1, 6)) STORED;
+CREATE INDEX IF NOT EXISTS prompts_short_code_idx ON public.prompts(short_code);
