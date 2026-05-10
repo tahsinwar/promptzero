@@ -23,6 +23,7 @@ function PromptsList() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [shareFor, setShareFor] = useState<{ id: string; title: string } | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState<{ id: string; title: string; publish: boolean } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -226,7 +227,7 @@ function PromptsList() {
                         return (
                           <button
                             disabled={busy}
-                            onClick={() => togglePublish.mutate({ id: p.id, publish: !isPub })}
+                            onClick={() => setConfirmPublish({ id: p.id, title: p.title, publish: !isPub })}
                             className={`grid h-8 w-8 place-items-center rounded hover:bg-secondary disabled:opacity-50 ${isPub ? "text-emerald-500 hover:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
                             title={isPub ? "Unpublish" : "Publish"}
                           >
@@ -288,6 +289,33 @@ function PromptsList() {
         title={shareFor?.title ?? ""}
         onClose={() => setShareFor(null)}
       />
+
+      {confirmPublish && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => !togglePublish.isPending && setConfirmPublish(null)}>
+          <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">{confirmPublish.publish ? "Publish prompt?" : "Unpublish prompt?"}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {confirmPublish.publish
+                ? <>Make <span className="text-foreground font-medium">"{confirmPublish.title}"</span> visible to everyone.</>
+                : <>Hide <span className="text-foreground font-medium">"{confirmPublish.title}"</span> from the public site.</>}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button disabled={togglePublish.isPending} onClick={() => setConfirmPublish(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
+              <button
+                disabled={togglePublish.isPending}
+                onClick={() => {
+                  const payload = { id: confirmPublish.id, publish: confirmPublish.publish };
+                  togglePublish.mutate(payload, { onSettled: () => setConfirmPublish(null) });
+                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60 ${confirmPublish.publish ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground border border-border"}`}
+              >
+                {togglePublish.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {confirmPublish.publish ? "Publish" : "Unpublish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
