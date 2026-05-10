@@ -2,9 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
+import { ShareModal } from "@/components/share-modal";
 
 export const Route = createFileRoute("/admin/prompts/")({ component: PromptsList });
 
@@ -21,6 +22,7 @@ function PromptsList() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [shareFor, setShareFor] = useState<{ slug: string; title: string } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -185,6 +187,7 @@ function PromptsList() {
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end gap-1">
                       <Link to="/admin/prompts/$id" params={{ id: p.id }} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Edit"><Pencil className="h-4 w-4" /></Link>
+                      <button onClick={() => setShareFor({ slug: p.slug, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={duplicate.isPending} onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
                       <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
@@ -231,6 +234,13 @@ function PromptsList() {
           </div>
         </div>
       )}
+
+      <ShareModal
+        open={!!shareFor}
+        url={shareFor && typeof window !== "undefined" ? `${window.location.origin}/p/${shareFor.slug}` : ""}
+        title={shareFor?.title ?? ""}
+        onClose={() => setShareFor(null)}
+      />
     </div>
   );
 }
