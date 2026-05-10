@@ -27,7 +27,7 @@ function Page() {
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["admin-settings"],
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
     queryFn: async () => (await supabase.from("admin_settings").select("*").eq("id", 1).maybeSingle()).data,
   });
 
