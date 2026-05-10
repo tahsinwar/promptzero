@@ -112,6 +112,7 @@ export type Database = {
           description: string | null
           display_order: number | null
           id: string
+          link_clicks: number
           link_type: string | null
           prompt_id: string | null
           title: string
@@ -121,6 +122,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           id?: string
+          link_clicks?: number
           link_type?: string | null
           prompt_id?: string | null
           title: string
@@ -130,6 +132,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           id?: string
+          link_clicks?: number
           link_type?: string | null
           prompt_id?: string | null
           title?: string
@@ -471,6 +474,7 @@ export type Database = {
       }
       increment_comment_upvote: { Args: { c_id: string }; Returns: undefined }
       increment_copy_count: { Args: { p_id: string }; Returns: undefined }
+      increment_link_clicks: { Args: { l_id: string }; Returns: undefined }
       increment_view_count: { Args: { p_slug: string }; Returns: undefined }
     }
     Enums: {

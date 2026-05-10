@@ -1,19 +1,617 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, notFound, Link } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
+import {
+  Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
+  Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
+  Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { getSessionId } from "@/lib/slug";
+import { useBookmarks } from "@/hooks/use-bookmarks";
+import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
+import { ShareModal } from "@/components/share-modal";
 
 export const Route = createFileRoute("/p/$slug")({
-  component: PromptDetailPlaceholder,
+  component: PromptDetail,
   head: ({ params }) => ({ meta: [{ title: `${params.slug} — Prompt Vault` }] }),
 });
 
-function PromptDetailPlaceholder() {
+const linkIcon = (t: string) => {
+  const m: Record<string, any> = {
+    drive: HardDrive, youtube: Youtube, github: Github, notion: FileText,
+    pdf: FileText, twitter: Twitter, linkedin: Linkedin, website: Globe,
+  };
+  return m[t] ?? Globe;
+};
+
+const ytEmbed = (url: string) => {
+  const m = url.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/);
+  return m ? `https://www.youtube.com/embed/${m[1]}` : url;
+};
+
+const timeAgo = (d: string) => {
+  const s = (Date.now() - new Date(d).getTime()) / 1000;
+  if (s < 60) return `${Math.floor(s)}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
+
+const TABS = ["Prompt", "Notes", "Videos", "Links", "Q&A", "Comments"] as const;
+type Tab = typeof TABS[number];
+
+function PromptDetail() {
   const { slug } = Route.useParams();
-  return (
-    <div className="mx-auto max-w-3xl px-6 py-16">
-      <div className="vault-card rounded-2xl p-10">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Prompt</p>
-        <h1 className="mt-1 text-2xl font-bold break-words">{slug}</h1>
-        <p className="mt-3 text-sm text-muted-foreground">Prompt detail coming soon.</p>
+  const qc = useQueryClient();
+  const { has, toggle } = useBookmarks();
+  const [tab, setTab] = useState<Tab>("Prompt");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["prompt-full", slug],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data: p } = await supabase
+        .from("prompts")
+        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*)")
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .maybeSingle();
+      if (!p) return null;
+      const [comments, vq, versions, ratings] = await Promise.all([
+        supabase.from("comments").select("*").eq("prompt_id", p.id).eq("is_approved", true).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
+        supabase.from("visitor_questions").select("*").eq("prompt_id", p.id).eq("is_published", true).order("created_at", { ascending: false }),
+        supabase.from("prompt_versions").select("id").eq("prompt_id", p.id),
+        supabase.from("ratings").select("value").eq("prompt_id", p.id),
+      ]);
+      return {
+        prompt: p as any,
+        comments: comments.data ?? [],
+        visitorQs: vq.data ?? [],
+        versionCount: (versions.data?.length ?? 0) + 1,
+        ratings: ratings.data ?? [],
+      };
+    },
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["admin-settings-pin"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
+      return (data?.settings ?? {}) as any;
+    },
+  });
+
+  const prompt = data?.prompt;
+  const expired = prompt?.expires_at ? new Date(prompt.expires_at).getTime() < Date.now() : false;
+
+  // increment view once per session per slug
+  useEffect(() => {
+    if (!prompt) return;
+    const key = `viewed_${slug}`;
+    if (!sessionStorage.getItem(key)) {
+      supabase.rpc("increment_view_count", { p_slug: slug });
+      sessionStorage.setItem(key, "1");
+    }
+  }, [prompt, slug]);
+
+  // unlock state
+  useEffect(() => {
+    if (prompt?.is_locked) setUnlocked(isUnlocked(prompt.id));
+    else setUnlocked(true);
+  }, [prompt]);
+
+  if (isLoading) {
+    return <div className="mx-auto max-w-5xl px-6 py-16"><div className="vault-card rounded-2xl p-10 text-sm text-muted-foreground">Loading…</div></div>;
+  }
+  if (error || !data || !prompt) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-20 text-center">
+        <h1 className="text-3xl font-bold">404</h1>
+        <p className="mt-2 text-muted-foreground">This prompt doesn't exist or was removed.</p>
+        <Link to="/" className="mt-6 inline-block rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Back home</Link>
       </div>
+    );
+  }
+  if (expired) {
+    return (
+      <div className="mx-auto max-w-md px-6 py-20">
+        <div className="vault-card rounded-2xl p-8 text-center">
+          <Clock className="mx-auto h-10 w-10 text-destructive" />
+          <h1 className="mt-3 text-xl font-bold">This link has expired</h1>
+          <p className="mt-2 text-sm text-muted-foreground">The author set this prompt to expire and it's no longer available.</p>
+          <Link to="/browse" className="mt-5 inline-block text-sm text-primary hover:underline">Browse other prompts</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const tags = (prompt.prompt_tags ?? []).map((pt: any) => pt.tags).filter(Boolean);
+  const videos = prompt.prompt_videos ?? [];
+  const links = prompt.prompt_links ?? [];
+  const qaList = prompt.prompt_qa ?? [];
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 print:py-0 print:max-w-full">
+      <PinLockModal
+        promptId={prompt.id}
+        pinHash={prompt.pin_hash}
+        fallbackPin={settings?.default_pin ?? "00000"}
+        open={!!prompt.is_locked && !unlocked}
+        onUnlock={() => setUnlocked(true)}
+      />
+      <ShareModal open={shareOpen} url={typeof window !== "undefined" ? window.location.href : ""} title={prompt.title} onClose={() => setShareOpen(false)} />
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0">
+          {/* Header */}
+          <header className="print:block">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {prompt.categories && (
+                <span className="px-2.5 py-1 rounded-md font-medium" style={{ backgroundColor: `${prompt.categories.color}20`, color: prompt.categories.color }}>
+                  {prompt.categories.name}
+                </span>
+              )}
+              {(prompt.ai_models ?? []).map((m: string) => (
+                <span key={m} className="px-2 py-1 rounded-md bg-secondary text-secondary-foreground">{m}</span>
+              ))}
+              {prompt.difficulty && <span className="px-2 py-1 rounded-md border border-border">{prompt.difficulty}</span>}
+              <span className="px-2 py-1 rounded-md bg-primary/15 text-primary">v{data.versionCount}</span>
+            </div>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">{prompt.title}</h1>
+            {prompt.description && <p className="mt-2 text-muted-foreground">{prompt.description}</p>}
+
+            <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground print:hidden">
+              <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {prompt.view_count} views</span>
+              <span className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> {prompt.copy_count} copies</span>
+              <div className="ml-auto flex gap-2">
+                <button onClick={() => toggle(slug)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm border ${has(slug) ? "bg-primary/15 border-primary/40 text-primary" : "border-border hover:bg-secondary"}`}>
+                  <Bookmark className="h-4 w-4" fill={has(slug) ? "currentColor" : "none"} />
+                  {has(slug) ? "Saved" : "Save"}
+                </button>
+                <button onClick={() => setShareOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-secondary">
+                  <Share2 className="h-4 w-4" /> Share
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Tabs */}
+          <div className="mt-6 print:hidden">
+            <div className="flex gap-1 border-b border-border overflow-x-auto">
+              {TABS.map((t) => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`px-3.5 py-2 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 print:mt-2">
+            <div className={tab === "Prompt" ? "" : "hidden print:block"}>
+              <PromptTab prompt={prompt} unlocked={unlocked} />
+            </div>
+            {tab === "Notes" && <NotesTab notes={prompt.notes} />}
+            {tab === "Videos" && <VideosTab videos={videos} />}
+            {tab === "Links" && <LinksTab links={links} />}
+            {tab === "Q&A" && <QATab promptId={prompt.id} qa={qaList} visitorQs={data.visitorQs} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
+            {tab === "Comments" && <CommentsTab promptId={prompt.id} comments={data.comments} autoApprove={!!settings?.comment_auto_approve} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <Sidebar prompt={prompt} ratings={data.ratings} tags={tags} slug={slug} />
+      </div>
+
+      <style>{`
+        @media print {
+          nav, footer, .print\\:hidden { display: none !important; }
+        }
+      `}</style>
     </div>
+  );
+}
+
+/* ---------- Prompt Tab ---------- */
+function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const variables = useMemo(() => {
+    const set = new Set<string>();
+    const re = /\[([a-zA-Z0-9_\- ]+)\]/g;
+    let m;
+    while ((m = re.exec(prompt.content ?? "")) !== null) set.add(m[1]);
+    return Array.from(set);
+  }, [prompt.content]);
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const tokens = Math.ceil((prompt.content?.length ?? 0) / 4);
+
+  const buildContent = () => {
+    let c: string = prompt.content ?? "";
+    for (const v of variables) {
+      const r = vals[v];
+      if (r) c = c.replaceAll(`[${v}]`, r);
+    }
+    return c;
+  };
+
+  const copy = async (custom = false) => {
+    if (!unlocked) { toast.error("Unlock the prompt first"); return; }
+    const text = custom ? buildContent() : (prompt.content ?? "");
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    await supabase.rpc("increment_copy_count", { p_id: prompt.id });
+    toast.success("Copied to clipboard");
+  };
+
+  return (
+    <div className="space-y-4">
+      {variables.length > 0 && unlocked && (
+        <div className="vault-card rounded-xl p-4">
+          <h4 className="text-sm font-semibold inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" /> Fill in your values</h4>
+          <div className="mt-3 grid sm:grid-cols-2 gap-2">
+            {variables.map((v) => (
+              <div key={v}>
+                <label className="text-xs text-muted-foreground">[{v}]</label>
+                <input value={vals[v] ?? ""} onChange={(e) => setVals({ ...vals, [v]: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border bg-input/40 px-3 py-1.5 text-sm outline-none focus:border-primary" />
+              </div>
+            ))}
+          </div>
+          <button onClick={() => copy(true)} className="mt-3 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
+            Copy with my values
+          </button>
+        </div>
+      )}
+
+      <div className="vault-card rounded-xl">
+        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+          <span className="text-xs text-muted-foreground">~{tokens} tokens · {prompt.content?.length ?? 0} chars</span>
+          <button onClick={() => copy(false)} disabled={!unlocked} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow disabled:opacity-50">
+            <AnimatePresence mode="wait">
+              {copied ? <motion.span key="c" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Copied</motion.span>
+                : <motion.span key="i" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> Copy</motion.span>}
+            </AnimatePresence>
+          </button>
+        </div>
+        <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+          {unlocked ? prompt.content : "🔒 Content locked — enter PIN to view"}
+        </pre>
+      </div>
+
+      {(prompt.ai_models ?? []).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">Compatible with:</span>
+          {prompt.ai_models.map((m: string) => (
+            <span key={m} className="text-xs px-2 py-0.5 rounded bg-accent/15 text-accent">{m}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Notes ---------- */
+function NotesTab({ notes }: { notes: string | null }) {
+  if (!notes) return <p className="text-sm text-muted-foreground">No notes added.</p>;
+  return (
+    <div className="vault-card rounded-xl p-5 prose prose-invert max-w-none prose-headings:font-bold prose-a:text-primary text-sm">
+      <ReactMarkdown>{notes}</ReactMarkdown>
+    </div>
+  );
+}
+
+/* ---------- Videos ---------- */
+function VideosTab({ videos }: { videos: any[] }) {
+  if (videos.length === 0) return <p className="text-sm text-muted-foreground">No videos added.</p>;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {videos.map((v) => (
+        <div key={v.id} className="vault-card rounded-xl overflow-hidden">
+          <div className="aspect-video bg-black">
+            <iframe src={ytEmbed(v.youtube_url)} title={v.title ?? "Video"} className="h-full w-full" allow="encrypted-media" allowFullScreen />
+          </div>
+          {v.title && <div className="p-3 text-sm font-medium">{v.title}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Links ---------- */
+function LinksTab({ links }: { links: any[] }) {
+  if (links.length === 0) return <p className="text-sm text-muted-foreground">No links added.</p>;
+  const onClick = (id: string) => { supabase.rpc("increment_link_clicks" as any, { l_id: id } as any); };
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {links.map((l) => {
+        const Icon = linkIcon(l.link_type ?? "website");
+        return (
+          <a key={l.id} href={l.url} target="_blank" rel="noreferrer" onClick={() => onClick(l.id)}
+            className="vault-card rounded-xl p-4 flex gap-3 hover:border-primary/40 transition-colors">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/15 ring-1 ring-primary/30 shrink-0">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold truncate">{l.title}</div>
+              {l.description && <div className="text-xs text-muted-foreground line-clamp-2">{l.description}</div>}
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Q&A ---------- */
+function Accordion({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="vault-card rounded-xl">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 p-4 text-left">
+        <span className="text-sm font-medium">{q}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-4 pb-4 text-sm text-muted-foreground whitespace-pre-wrap">{a}</div>}
+    </div>
+  );
+}
+
+function QATab({ promptId, qa, visitorQs, onSubmitted }: { promptId: string; qa: any[]; visitorQs: any[]; onSubmitted: () => void }) {
+  const [name, setName] = useState("");
+  const [question, setQuestion] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !question.trim()) return;
+    setSubmitting(true);
+    const { error } = await supabase.from("visitor_questions").insert({ prompt_id: promptId, author_name: name.trim().slice(0, 100), question: question.trim().slice(0, 1000) });
+    setSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    setDone(true); setName(""); setQuestion("");
+    toast.success("Question submitted");
+    onSubmitted();
+  };
+
+  return (
+    <div className="space-y-6">
+      {qa.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold mb-2">FAQ</h3>
+          <div className="space-y-2">{qa.map((x) => <Accordion key={x.id} q={x.question} a={x.answer} />)}</div>
+        </section>
+      )}
+      {visitorQs.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold mb-2">Visitor questions</h3>
+          <div className="space-y-2">{visitorQs.map((x) => <Accordion key={x.id} q={`${x.author_name}: ${x.question}`} a={x.answer ?? "Awaiting reply…"} />)}</div>
+        </section>
+      )}
+      <section className="vault-card rounded-xl p-4">
+        <h3 className="text-sm font-semibold">Ask a question</h3>
+        {done ? <p className="mt-2 text-sm text-primary">Thanks! Your question was submitted.</p> : (
+          <form onSubmit={submit} className="mt-3 space-y-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder="Your name" required
+              className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary" />
+            <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={1000} placeholder="Your question…" required rows={3}
+              className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary" />
+            <button disabled={submitting} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              {submitting ? "Submitting…" : "Submit question"}
+            </button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ---------- Comments ---------- */
+function CommentsTab({ promptId, comments, autoApprove, onSubmitted }: { promptId: string; comments: any[]; autoApprove: boolean; onSubmitted: () => void }) {
+  const top = comments.filter((c) => !c.parent_id);
+  const replies = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+  const [done, setDone] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !content.trim()) return;
+    const { error } = await supabase.from("comments").insert({
+      prompt_id: promptId, author_name: name.trim().slice(0, 100),
+      content: content.trim().slice(0, 2000), is_approved: autoApprove,
+    });
+    if (error) { toast.error(error.message); return; }
+    setName(""); setContent(""); setDone(true);
+    toast.success(autoApprove ? "Comment posted" : "Comment pending approval");
+    onSubmitted();
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        {top.length === 0 && <p className="text-sm text-muted-foreground">Be the first to comment.</p>}
+        {top.map((c) => (
+          <CommentItem key={c.id} comment={c} replies={replies(c.id)} promptId={promptId} autoApprove={autoApprove} onSubmitted={onSubmitted} />
+        ))}
+      </div>
+
+      <section className="vault-card rounded-xl p-4">
+        <h3 className="text-sm font-semibold">Leave a comment</h3>
+        {done ? <p className="mt-2 text-sm text-primary">{autoApprove ? "Comment posted." : "Comment pending approval."}</p> : (
+          <form onSubmit={submit} className="mt-3 space-y-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder="Your name" required
+              className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary" />
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} placeholder="Your message…" required rows={3}
+              className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary" />
+            <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Post comment</button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function CommentItem({ comment, replies, promptId, autoApprove, onSubmitted }: { comment: any; replies: any[]; promptId: string; autoApprove: boolean; onSubmitted: () => void }) {
+  const qc = useQueryClient();
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+
+  const upvote = async () => {
+    await supabase.rpc("increment_comment_upvote", { c_id: comment.id });
+    onSubmitted();
+  };
+  const submitReply = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !content.trim()) return;
+    const { error } = await supabase.from("comments").insert({
+      prompt_id: promptId, parent_id: comment.id,
+      author_name: name.trim().slice(0, 100), content: content.trim().slice(0, 2000),
+      is_approved: autoApprove,
+    });
+    if (error) { toast.error(error.message); return; }
+    setName(""); setContent(""); setReplyOpen(false);
+    toast.success(autoApprove ? "Reply posted" : "Reply pending approval");
+    qc.invalidateQueries();
+  };
+
+  return (
+    <div className="vault-card rounded-xl p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm">
+          <span className="font-semibold">{comment.author_name}</span>
+          {comment.is_pinned && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">Pinned</span>}
+          <span className="ml-2 text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+        </div>
+        <button onClick={upvote} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ThumbsUp className="h-3.5 w-3.5" /> {comment.upvotes ?? 0}
+        </button>
+      </div>
+      <p className="mt-2 text-sm whitespace-pre-wrap">{comment.content}</p>
+      <button onClick={() => setReplyOpen(!replyOpen)} className="mt-2 text-xs text-primary hover:underline inline-flex items-center gap-1">
+        <MessageSquare className="h-3 w-3" /> Reply
+      </button>
+      {replyOpen && (
+        <form onSubmit={submitReply} className="mt-3 space-y-2 pl-4 border-l border-border">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required
+            className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm" />
+          <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Your reply…" required rows={2}
+            className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm" />
+          <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">Post reply</button>
+        </form>
+      )}
+      {replies.length > 0 && (
+        <div className="mt-3 space-y-2 pl-4 border-l border-border">
+          {replies.map((r) => (
+            <div key={r.id}>
+              <div className="text-xs"><span className="font-semibold">{r.author_name}</span> <span className="text-muted-foreground ml-1">{timeAgo(r.created_at)}</span></div>
+              <p className="mt-1 text-sm whitespace-pre-wrap">{r.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Sidebar ---------- */
+function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[]; tags: any[]; slug: string }) {
+  const qc = useQueryClient();
+  const { has, toggle } = useBookmarks();
+  const up = ratings.filter((r) => r.value === 1).length;
+  const down = ratings.filter((r) => r.value === -1).length;
+  const total = up + down;
+  const score = total > 0 ? Math.round((up / total) * 100) : null;
+
+  const rate = useMutation({
+    mutationFn: async (value: 1 | -1) => {
+      const session_id = getSessionId();
+      const { error } = await supabase.from("ratings").upsert({ prompt_id: prompt.id, value, session_id }, { onConflict: "prompt_id,session_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["prompt-full", slug] }); toast.success("Thanks!"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const tagIds = tags.map((t) => t.id);
+  const { data: related = [] } = useQuery({
+    queryKey: ["related", prompt.id, tagIds],
+    enabled: tagIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from("prompt_tags").select("prompts(id,slug,title,copy_count,is_published)").in("tag_id", tagIds);
+      const seen = new Set<string>();
+      const out: any[] = [];
+      for (const r of (data ?? []) as any[]) {
+        const p = r.prompts;
+        if (p && p.is_published && p.id !== prompt.id && !seen.has(p.id)) {
+          seen.add(p.id); out.push(p);
+        }
+      }
+      return out.sort((a, b) => b.copy_count - a.copy_count).slice(0, 4);
+    },
+  });
+
+  return (
+    <aside className="space-y-4 print:hidden">
+      <div className="vault-card rounded-xl p-4">
+        <h4 className="text-sm font-semibold">Was this helpful?</h4>
+        <div className="mt-3 flex gap-2">
+          <button onClick={() => rate.mutate(1)} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-sm hover:bg-secondary">
+            <ThumbsUp className="h-4 w-4" /> {up}
+          </button>
+          <button onClick={() => rate.mutate(-1)} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-sm hover:bg-secondary">
+            <ThumbsDown className="h-4 w-4" /> {down}
+          </button>
+        </div>
+        {score !== null && <div className="mt-2 text-xs text-muted-foreground text-center">{score}% positive ({total} votes)</div>}
+      </div>
+
+      <div className="vault-card rounded-xl p-4 space-y-2">
+        <button onClick={() => toggle(slug)} className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm hover:bg-secondary">
+          <Bookmark className="h-4 w-4" fill={has(slug) ? "currentColor" : "none"} />
+          {has(slug) ? "Saved" : "Bookmark"}
+        </button>
+        <button onClick={() => window.print()} className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm hover:bg-secondary">
+          <Printer className="h-4 w-4" /> Print
+        </button>
+      </div>
+
+      {tags.length > 0 && (
+        <div className="vault-card rounded-xl p-4">
+          <h4 className="text-sm font-semibold mb-2">Tags</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((t) => (
+              <Link key={t.id} to="/browse" search={{ tag: t.slug } as any} className="text-xs px-2 py-0.5 rounded bg-secondary hover:bg-secondary/70">#{t.name}</Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {related.length > 0 && (
+        <div className="vault-card rounded-xl p-4">
+          <h4 className="text-sm font-semibold mb-2">Related prompts</h4>
+          <ul className="space-y-2">
+            {related.map((r) => (
+              <li key={r.id}>
+                <Link to="/p/$slug" params={{ slug: r.slug }} className="block text-sm hover:text-primary truncate">{r.title}</Link>
+                <span className="text-xs text-muted-foreground">{r.copy_count} copies</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </aside>
   );
 }
