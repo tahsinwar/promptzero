@@ -5,6 +5,7 @@ import {
   FileText, CheckCircle, Copy, Eye, MessageSquare, HelpCircle,
   Plus, Edit3, MessageCircle, Clock,
 } from "lucide-react";
+import { AdminCardsSkeleton, AdminListSkeleton } from "@/components/admin-skeletons";
 
 export const Route = createFileRoute("/admin/")({ component: Dashboard });
 
@@ -17,7 +18,7 @@ function timeAgo(d: string) {
 }
 
 function Dashboard() {
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-stats"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -41,7 +42,7 @@ function Dashboard() {
     },
   });
 
-  const { data: activity = [] } = useQuery({
+  const { data: activity = [], isLoading: actLoading } = useQuery({
     queryKey: ["admin-activity"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -68,23 +69,31 @@ function Dashboard() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Stat icon={FileText} label="Total prompts" value={stats?.total ?? 0} />
-        <Stat icon={CheckCircle} label="Published" value={stats?.published ?? 0} />
-        <Stat icon={Copy} label="Total copies" value={stats?.copies ?? 0} />
-        <Stat icon={Eye} label="Total views" value={stats?.views ?? 0} />
-        <Stat icon={MessageSquare} label="Pending comments" value={stats?.pending ?? 0} accent />
-        <Stat icon={HelpCircle} label="Pending questions" value={stats?.questions ?? 0} accent />
-      </div>
+      {statsLoading && !stats ? (
+        <AdminCardsSkeleton count={6} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Stat icon={FileText} label="Total prompts" value={stats?.total ?? 0} />
+          <Stat icon={CheckCircle} label="Published" value={stats?.published ?? 0} />
+          <Stat icon={Copy} label="Total copies" value={stats?.copies ?? 0} />
+          <Stat icon={Eye} label="Total views" value={stats?.views ?? 0} />
+          <Stat icon={MessageSquare} label="Pending comments" value={stats?.pending ?? 0} accent />
+          <Stat icon={HelpCircle} label="Pending questions" value={stats?.questions ?? 0} accent />
+        </div>
+      )}
 
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Recent activity</h2>
-        <div className="vault-card rounded-xl divide-y divide-border">
-          {activity.length === 0 && <div className="p-4 text-sm text-muted-foreground">No recent activity yet.</div>}
-          {activity.map((it, i) => (
-            <ActivityRow key={i} item={it} />
-          ))}
-        </div>
+        {actLoading && activity.length === 0 ? (
+          <AdminListSkeleton rows={5} />
+        ) : (
+          <div className="vault-card rounded-xl divide-y divide-border">
+            {activity.length === 0 && <div className="p-4 text-sm text-muted-foreground">No recent activity yet.</div>}
+            {activity.map((it, i) => (
+              <ActivityRow key={i} item={it} />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
