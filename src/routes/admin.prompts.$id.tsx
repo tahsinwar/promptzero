@@ -227,10 +227,11 @@ function EditPrompt() {
   // Related items helpers
   const saveRelated = async (table: string, items: any[]) => {
     if (isNew) return;
-    await supabase.from(table).delete().eq("prompt_id", id);
+    const t = supabase.from(table as any);
+    await t.delete().eq("prompt_id", id);
     if (items.length) {
       const rows = items.map((it, i) => { const { id: _, ...rest } = it; return { ...rest, prompt_id: id, display_order: i }; });
-      const { error } = await supabase.from(table).insert(rows);
+      const { error } = await supabase.from(table as any).insert(rows as any);
       if (error) toast.error(error.message);
     }
   };
@@ -407,7 +408,7 @@ function EditPrompt() {
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Live preview</div>
         <div className="vault-card rounded-xl p-5 max-h-[80vh] overflow-auto">
           <div className="flex flex-wrap gap-1.5 mb-2 text-xs">
-            {cat && <span className="px-2 py-0.5 rounded font-medium" style={{ backgroundColor: `${cat.color}25`, color: cat.color }}>{cat.name}</span>}
+            {cat && <span className="px-2 py-0.5 rounded font-medium" style={{ backgroundColor: `${cat.color ?? "#6366f1"}25`, color: cat.color ?? "#6366f1" }}>{cat.name}</span>}
             {form.ai_models.slice(0, 5).map((m) => <span key={m} className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground">{m}</span>)}
             {form.difficulty && <span className="px-2 py-0.5 rounded border border-border">{form.difficulty}</span>}
           </div>
