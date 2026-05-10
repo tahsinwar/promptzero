@@ -24,6 +24,7 @@ function PromptsList() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [shareFor, setShareFor] = useState<{ id: string; title: string } | null>(null);
   const [confirmPublish, setConfirmPublish] = useState<{ id: string; title: string; publish: boolean } | null>(null);
+  const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -236,7 +237,7 @@ function PromptsList() {
                         );
                       })()}
                       <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
-                      <button disabled={duplicate.isPending} onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
+                      <button disabled={duplicate.isPending} onClick={() => setConfirmDuplicate({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
                       <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
                   </td>
