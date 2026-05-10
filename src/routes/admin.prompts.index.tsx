@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 import { ShareModal } from "@/components/share-modal";
@@ -118,6 +118,22 @@ function PromptsList() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const togglePublish = useMutation({
+    mutationFn: async (p: { id: string; publish: boolean }) => {
+      const { error } = await supabase
+        .from("prompts")
+        .update({ status: p.publish ? "published" : "draft", is_published: p.publish })
+        .eq("id", p.id);
+      if (error) throw error;
+      return p;
+    },
+    onSuccess: (p) => {
+      qc.invalidateQueries({ queryKey: ["admin-prompts"] });
+      toast.success(p.publish ? "Published" : "Unpublished");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
@@ -187,6 +203,20 @@ function PromptsList() {
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end gap-1">
                       <Link to="/admin/prompts/$id" params={{ id: p.id }} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Edit"><Pencil className="h-4 w-4" /></Link>
+                      {(() => {
+                        const isPub = p.status === "published";
+                        const busy = togglePublish.isPending && (togglePublish.variables as any)?.id === p.id;
+                        return (
+                          <button
+                            disabled={busy}
+                            onClick={() => togglePublish.mutate({ id: p.id, publish: !isPub })}
+                            className={`grid h-8 w-8 place-items-center rounded hover:bg-secondary disabled:opacity-50 ${isPub ? "text-emerald-500 hover:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+                            title={isPub ? "Unpublish" : "Publish"}
+                          >
+                            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : isPub ? <Globe className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                          </button>
+                        );
+                      })()}
                       <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={duplicate.isPending} onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
                       <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
