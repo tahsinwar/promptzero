@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 
@@ -159,9 +159,9 @@ function PromptsList() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && Array.from({ length: 5 }).map((_, i) => (
+              {isLoading && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
-                  <td colSpan={7} className="px-3 py-3"><div className="h-6 rounded bg-secondary/40 animate-pulse" /></td>
+                  <td colSpan={7} className="px-3 py-3"><div className="h-6 rounded bg-primary/10 animate-pulse" /></td>
                 </tr>
               ))}
               {!isLoading && pageItems.length === 0 && (
@@ -185,8 +185,8 @@ function PromptsList() {
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end gap-1">
                       <Link to="/admin/prompts/$id" params={{ id: p.id }} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Edit"><Pencil className="h-4 w-4" /></Link>
-                      <button onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Duplicate"><Copy className="h-4 w-4" /></button>
-                      <button onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      <button disabled={duplicate.isPending} onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
+                      <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
                   </td>
                 </tr>
@@ -212,9 +212,9 @@ function PromptsList() {
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 vault-card rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-card">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <div className="h-4 w-px bg-border" />
-          <button onClick={() => bulkUpdate.mutate({ status: "published", is_published: true })} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">Publish</button>
-          <button onClick={() => bulkUpdate.mutate({ status: "draft", is_published: false })} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary">Unpublish</button>
-          <button onClick={() => setConfirmBulkDelete(true)} className="rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
+          <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "published", is_published: true })} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">Publish</button>
+          <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "draft", is_published: false })} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60">Unpublish</button>
+          <button disabled={bulkDelete.isPending} onClick={() => setConfirmBulkDelete(true)} className="rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-60">Delete</button>
           <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
       )}
@@ -225,8 +225,8 @@ function PromptsList() {
             <h3 className="text-lg font-bold">Delete {selected.size} prompts?</h3>
             <p className="mt-2 text-sm text-muted-foreground">This action can't be undone.</p>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setConfirmBulkDelete(false)} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
-              <button onClick={() => bulkDelete.mutate()} className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold">Delete</button>
+              <button disabled={bulkDelete.isPending} onClick={() => setConfirmBulkDelete(false)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
+              <button disabled={bulkDelete.isPending} onClick={() => bulkDelete.mutate()} className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">{bulkDelete.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Delete</button>
             </div>
           </div>
         </div>
