@@ -293,12 +293,21 @@ function PromptsList() {
       {confirmPublish && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => !togglePublish.isPending && setConfirmPublish(null)}>
           <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">{confirmPublish.publish ? "Publish prompt?" : "Unpublish prompt?"}</h3>
+            <h3 className="text-lg font-bold">
+              {confirmPublish.publish ? "Publish this prompt?" : "Move this prompt to draft?"}
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {confirmPublish.publish
-                ? <>Make <span className="text-foreground font-medium">"{confirmPublish.title}"</span> visible to everyone.</>
-                : <>Hide <span className="text-foreground font-medium">"{confirmPublish.title}"</span> from the public site.</>}
+                ? <>Change <span className="text-foreground font-medium">"{confirmPublish.title}"</span> from Draft to Published. It will be visible on the public site.</>
+                : <>Change <span className="text-foreground font-medium">"{confirmPublish.title}"</span> from Published to Draft. It will be hidden from the public site.</>}
             </p>
+            <div className="mt-4 flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Currently</span>
+              <StatusBadge status={confirmPublish.publish ? "draft" : "published"} />
+              <span className="text-muted-foreground">→</span>
+              <span className="text-muted-foreground">After</span>
+              <StatusBadge status={confirmPublish.publish ? "published" : "draft"} />
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <button disabled={togglePublish.isPending} onClick={() => setConfirmPublish(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
               <button
