@@ -14,13 +14,436 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_settings: {
+        Row: {
+          id: number
+          settings: Json | null
+        }
+        Insert: {
+          id?: number
+          settings?: Json | null
+        }
+        Update: {
+          id?: number
+          settings?: Json | null
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          author_name: string
+          content: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          is_approved: boolean | null
+          is_pinned: boolean | null
+          parent_id: string | null
+          prompt_id: string | null
+          upvotes: number | null
+        }
+        Insert: {
+          author_name: string
+          content: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_approved?: boolean | null
+          is_pinned?: boolean | null
+          parent_id?: string | null
+          prompt_id?: string | null
+          upvotes?: number | null
+        }
+        Update: {
+          author_name?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_approved?: boolean | null
+          is_pinned?: boolean | null
+          parent_id?: string | null
+          prompt_id?: string | null
+          upvotes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_links: {
+        Row: {
+          description: string | null
+          display_order: number | null
+          id: string
+          link_type: string | null
+          prompt_id: string | null
+          title: string
+          url: string
+        }
+        Insert: {
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          link_type?: string | null
+          prompt_id?: string | null
+          title: string
+          url: string
+        }
+        Update: {
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          link_type?: string | null
+          prompt_id?: string | null
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_links_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_qa: {
+        Row: {
+          answer: string
+          display_order: number | null
+          id: string
+          prompt_id: string | null
+          question: string
+        }
+        Insert: {
+          answer: string
+          display_order?: number | null
+          id?: string
+          prompt_id?: string | null
+          question: string
+        }
+        Update: {
+          answer?: string
+          display_order?: number | null
+          id?: string
+          prompt_id?: string | null
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_qa_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_tags: {
+        Row: {
+          prompt_id: string
+          tag_id: string
+        }
+        Insert: {
+          prompt_id: string
+          tag_id: string
+        }
+        Update: {
+          prompt_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_tags_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_versions: {
+        Row: {
+          change_note: string | null
+          changed_at: string | null
+          content: string
+          id: string
+          prompt_id: string | null
+        }
+        Insert: {
+          change_note?: string | null
+          changed_at?: string | null
+          content: string
+          id?: string
+          prompt_id?: string | null
+        }
+        Update: {
+          change_note?: string | null
+          changed_at?: string | null
+          content?: string
+          id?: string
+          prompt_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_versions_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_videos: {
+        Row: {
+          display_order: number | null
+          id: string
+          prompt_id: string | null
+          title: string | null
+          youtube_url: string
+        }
+        Insert: {
+          display_order?: number | null
+          id?: string
+          prompt_id?: string | null
+          title?: string | null
+          youtube_url: string
+        }
+        Update: {
+          display_order?: number | null
+          id?: string
+          prompt_id?: string | null
+          title?: string | null
+          youtube_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_videos_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompts: {
+        Row: {
+          ai_models: string[] | null
+          auto_lock_minutes: number | null
+          category_id: string | null
+          content: string
+          copy_count: number | null
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          expires_at: string | null
+          id: string
+          is_featured: boolean | null
+          is_locked: boolean | null
+          is_published: boolean | null
+          notes: string | null
+          pin_hash: string | null
+          rating_avg: number | null
+          slug: string
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          ai_models?: string[] | null
+          auto_lock_minutes?: number | null
+          category_id?: string | null
+          content: string
+          copy_count?: number | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          expires_at?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_locked?: boolean | null
+          is_published?: boolean | null
+          notes?: string | null
+          pin_hash?: string | null
+          rating_avg?: number | null
+          slug: string
+          title: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          ai_models?: string[] | null
+          auto_lock_minutes?: number | null
+          category_id?: string | null
+          content?: string
+          copy_count?: number | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          expires_at?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_locked?: boolean | null
+          is_published?: boolean | null
+          notes?: string | null
+          pin_hash?: string | null
+          rating_avg?: number | null
+          slug?: string
+          title?: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ratings: {
+        Row: {
+          created_at: string | null
+          id: string
+          prompt_id: string | null
+          session_id: string
+          value: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          prompt_id?: string | null
+          session_id: string
+          value?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          prompt_id?: string | null
+          session_id?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      visitor_questions: {
+        Row: {
+          answer: string | null
+          author_name: string
+          created_at: string | null
+          id: string
+          is_published: boolean | null
+          prompt_id: string | null
+          question: string
+        }
+        Insert: {
+          answer?: string | null
+          author_name: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          prompt_id?: string | null
+          question: string
+        }
+        Update: {
+          answer?: string | null
+          author_name?: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          prompt_id?: string | null
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_questions_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_comment_upvote: { Args: { c_id: string }; Returns: undefined }
+      increment_copy_count: { Args: { p_id: string }; Returns: undefined }
+      increment_view_count: { Args: { p_slug: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
