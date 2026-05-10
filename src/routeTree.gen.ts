@@ -17,8 +17,11 @@ import { Route as PromptsSlugRouteImport } from './routes/prompts.$slug'
 import { Route as AdminTagsRouteImport } from './routes/admin.tags'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminQuestionsRouteImport } from './routes/admin.questions'
+import { Route as AdminPromptsRouteImport } from './routes/admin.prompts'
 import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
+import { Route as AdminPromptsIndexRouteImport } from './routes/admin.prompts.index'
+import { Route as AdminPromptsIdRouteImport } from './routes/admin.prompts.$id'
 
 const BrowseRoute = BrowseRouteImport.update({
   id: '/browse',
@@ -60,6 +63,11 @@ const AdminQuestionsRoute = AdminQuestionsRouteImport.update({
   path: '/questions',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPromptsRoute = AdminPromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCommentsRoute = AdminCommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
@@ -70,6 +78,16 @@ const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPromptsIndexRoute = AdminPromptsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminPromptsRoute,
+} as any)
+const AdminPromptsIdRoute = AdminPromptsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminPromptsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -77,11 +95,14 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
+  '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tags': typeof AdminTagsRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/admin/prompts/': typeof AdminPromptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,6 +114,8 @@ export interface FileRoutesByTo {
   '/admin/tags': typeof AdminTagsRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/admin/prompts': typeof AdminPromptsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -101,11 +124,14 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
+  '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/tags': typeof AdminTagsRoute
   '/prompts/$slug': typeof PromptsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/admin/prompts/': typeof AdminPromptsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,11 +141,14 @@ export interface FileRouteTypes {
     | '/browse'
     | '/admin/categories'
     | '/admin/comments'
+    | '/admin/prompts'
     | '/admin/questions'
     | '/admin/settings'
     | '/admin/tags'
     | '/prompts/$slug'
     | '/admin/'
+    | '/admin/prompts/$id'
+    | '/admin/prompts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,6 +160,8 @@ export interface FileRouteTypes {
     | '/admin/tags'
     | '/prompts/$slug'
     | '/admin'
+    | '/admin/prompts/$id'
+    | '/admin/prompts'
   id:
     | '__root__'
     | '/'
@@ -138,11 +169,14 @@ export interface FileRouteTypes {
     | '/browse'
     | '/admin/categories'
     | '/admin/comments'
+    | '/admin/prompts'
     | '/admin/questions'
     | '/admin/settings'
     | '/admin/tags'
     | '/prompts/$slug'
     | '/admin/'
+    | '/admin/prompts/$id'
+    | '/admin/prompts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQuestionsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/prompts': {
+      id: '/admin/prompts'
+      path: '/prompts'
+      fullPath: '/admin/prompts'
+      preLoaderRoute: typeof AdminPromptsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/comments': {
       id: '/admin/comments'
       path: '/comments'
@@ -224,12 +265,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCategoriesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/prompts/': {
+      id: '/admin/prompts/'
+      path: '/'
+      fullPath: '/admin/prompts/'
+      preLoaderRoute: typeof AdminPromptsIndexRouteImport
+      parentRoute: typeof AdminPromptsRoute
+    }
+    '/admin/prompts/$id': {
+      id: '/admin/prompts/$id'
+      path: '/$id'
+      fullPath: '/admin/prompts/$id'
+      preLoaderRoute: typeof AdminPromptsIdRouteImport
+      parentRoute: typeof AdminPromptsRoute
+    }
   }
 }
+
+interface AdminPromptsRouteChildren {
+  AdminPromptsIdRoute: typeof AdminPromptsIdRoute
+  AdminPromptsIndexRoute: typeof AdminPromptsIndexRoute
+}
+
+const AdminPromptsRouteChildren: AdminPromptsRouteChildren = {
+  AdminPromptsIdRoute: AdminPromptsIdRoute,
+  AdminPromptsIndexRoute: AdminPromptsIndexRoute,
+}
+
+const AdminPromptsRouteWithChildren = AdminPromptsRoute._addFileChildren(
+  AdminPromptsRouteChildren,
+)
 
 interface AdminRouteChildren {
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCommentsRoute: typeof AdminCommentsRoute
+  AdminPromptsRoute: typeof AdminPromptsRouteWithChildren
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTagsRoute: typeof AdminTagsRoute
@@ -239,6 +309,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCommentsRoute: AdminCommentsRoute,
+  AdminPromptsRoute: AdminPromptsRouteWithChildren,
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTagsRoute: AdminTagsRoute,
