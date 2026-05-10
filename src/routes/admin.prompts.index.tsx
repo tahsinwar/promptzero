@@ -326,6 +326,31 @@ function PromptsList() {
           </div>
         </div>
       )}
+
+      {confirmDuplicate && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => !duplicate.isPending && setConfirmDuplicate(null)}>
+          <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Duplicate prompt?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              A copy of <span className="text-foreground font-medium">"{confirmDuplicate.title}"</span> will be created as a draft. You'll be taken to the editor.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button disabled={duplicate.isPending} onClick={() => setConfirmDuplicate(null)} className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60">Cancel</button>
+              <button
+                disabled={duplicate.isPending}
+                onClick={() => {
+                  const id = confirmDuplicate.id;
+                  duplicate.mutate(id, { onSettled: () => setConfirmDuplicate(null) });
+                }}
+                className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {duplicate.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Duplicate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
