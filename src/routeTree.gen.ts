@@ -15,6 +15,7 @@ import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as SCodeRouteImport } from './routes/s.$code'
 import { Route as PromptsSlugRouteImport } from './routes/prompts.$slug'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
@@ -53,6 +54,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const SCodeRoute = SCodeRouteImport.update({
+  id: '/s/$code',
+  path: '/s/$code',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PromptsSlugRoute = PromptsSlugRouteImport.update({
   id: '/prompts/$slug',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
+  '/s/$code': typeof SCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
   '/admin/prompts/': typeof AdminPromptsIndexRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
+  '/s/$code': typeof SCodeRoute
   '/admin': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
   '/admin/prompts': typeof AdminPromptsIndexRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
+  '/s/$code': typeof SCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
   '/admin/prompts/': typeof AdminPromptsIndexRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/p/$slug'
     | '/prompts/$slug'
+    | '/s/$code'
     | '/admin/'
     | '/admin/prompts/$id'
     | '/admin/prompts/'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/p/$slug'
     | '/prompts/$slug'
+    | '/s/$code'
     | '/admin'
     | '/admin/prompts/$id'
     | '/admin/prompts'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/p/$slug'
     | '/prompts/$slug'
+    | '/s/$code'
     | '/admin/'
     | '/admin/prompts/$id'
     | '/admin/prompts/'
@@ -199,6 +211,7 @@ export interface RootRouteChildren {
   SavedRoute: typeof SavedRoute
   PSlugRoute: typeof PSlugRoute
   PromptsSlugRoute: typeof PromptsSlugRoute
+  SCodeRoute: typeof SCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/s/$code': {
+      id: '/s/$code'
+      path: '/s/$code'
+      fullPath: '/s/$code'
+      preLoaderRoute: typeof SCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/prompts/$slug': {
       id: '/prompts/$slug'
@@ -344,6 +364,7 @@ const rootRouteChildren: RootRouteChildren = {
   SavedRoute: SavedRoute,
   PSlugRoute: PSlugRoute,
   PromptsSlugRoute: PromptsSlugRoute,
+  SCodeRoute: SCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

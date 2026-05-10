@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2 } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -188,6 +188,26 @@ function EditPrompt() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const togglePublish = useMutation({
+    mutationFn: async () => {
+      if (isNew || !id) throw new Error("Save first");
+      const next = form.status === "published" ? "draft" : "published";
+      const { error } = await supabase
+        .from("prompts")
+        .update({ status: next, is_published: next === "published" })
+        .eq("id", id);
+      if (error) throw error;
+      return next;
+    },
+    onSuccess: (next) => {
+      setForm((f) => ({ ...f, status: next as Form["status"] }));
+      qc.invalidateQueries({ queryKey: ["admin-prompts"] });
+      qc.invalidateQueries({ queryKey: ["edit-prompt", id] });
+      toast.success(next === "published" ? "Published" : "Unpublished");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async () => {
       if (isNew) return;
@@ -255,7 +275,28 @@ function EditPrompt() {
                 {duplicate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />} Duplicate
               </button>
             )}
-            {!isNew && form.slug && (
+            {!isNew && (
+              <button
+                disabled={togglePublish.isPending}
+                onClick={() => togglePublish.mutate()}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-60 ${
+                  form.status === "published"
+                    ? "border border-border hover:bg-secondary text-muted-foreground"
+                    : "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/25"
+                }`}
+                title={form.status === "published" ? "Unpublish" : "Publish"}
+              >
+                {togglePublish.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : form.status === "published" ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Globe className="h-4 w-4" />
+                )}
+                {form.status === "published" ? "Unpublish" : "Publish"}
+              </button>
+            )}
+            {!isNew && id && (
               <button onClick={() => setShareOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
                 <Share2 className="h-4 w-4" /> Share
               </button>
@@ -429,7 +470,7 @@ function EditPrompt() {
       </aside>
       <ShareModal
         open={shareOpen}
-        url={typeof window !== "undefined" && form.slug ? `${window.location.origin}/p/${form.slug}` : ""}
+        url={typeof window !== "undefined" && id ? `${window.location.origin}/s/${String(id).slice(0, 6)}` : ""}
         title={form.title}
         onClose={() => setShareOpen(false)}
       />

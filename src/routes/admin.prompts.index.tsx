@@ -22,7 +22,7 @@ function PromptsList() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [shareFor, setShareFor] = useState<{ slug: string; title: string } | null>(null);
+  const [shareFor, setShareFor] = useState<{ id: string; title: string } | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
@@ -187,7 +187,7 @@ function PromptsList() {
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end gap-1">
                       <Link to="/admin/prompts/$id" params={{ id: p.id }} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Edit"><Pencil className="h-4 w-4" /></Link>
-                      <button onClick={() => setShareFor({ slug: p.slug, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
+                      <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={duplicate.isPending} onClick={() => duplicate.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
                       <button disabled={remove.isPending} onClick={() => window.confirm(`Delete "${p.title}"?`) && remove.mutate(p.id)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
@@ -237,7 +237,7 @@ function PromptsList() {
 
       <ShareModal
         open={!!shareFor}
-        url={shareFor && typeof window !== "undefined" ? `${window.location.origin}/p/${shareFor.slug}` : ""}
+        url={shareFor && typeof window !== "undefined" ? `${window.location.origin}/s/${shareFor.id.slice(0, 6)}` : ""}
         title={shareFor?.title ?? ""}
         onClose={() => setShareFor(null)}
       />

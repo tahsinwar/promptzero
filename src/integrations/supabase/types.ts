@@ -292,6 +292,7 @@ export type Database = {
           notes: string | null
           pin_hash: string | null
           rating_avg: number | null
+          short_code: string | null
           slug: string
           status: string
           title: string
@@ -315,6 +316,7 @@ export type Database = {
           notes?: string | null
           pin_hash?: string | null
           rating_avg?: number | null
+          short_code?: string | null
           slug: string
           status?: string
           title: string
@@ -338,6 +340,7 @@ export type Database = {
           notes?: string | null
           pin_hash?: string | null
           rating_avg?: number | null
+          short_code?: string | null
           slug?: string
           status?: string
           title?: string
