@@ -255,6 +255,11 @@ function EditPrompt() {
                 {duplicate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />} Duplicate
               </button>
             )}
+            {!isNew && form.slug && (
+              <button onClick={() => setShareOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
+                <Share2 className="h-4 w-4" /> Share
+              </button>
+            )}
             {!isNew && (
               <button disabled={remove.isPending} onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 text-destructive px-3 py-2 text-sm hover:bg-destructive/10 disabled:opacity-60">
                 <Trash2 className="h-4 w-4" /> Delete
