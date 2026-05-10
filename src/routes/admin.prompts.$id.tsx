@@ -59,6 +59,7 @@ function EditPrompt() {
   const [links, setLinks] = useState<any[]>([]);
   const [qa, setQa] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"], staleTime: 5 * 60 * 1000,
