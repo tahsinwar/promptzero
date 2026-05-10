@@ -317,7 +317,7 @@ function PromptsList() {
               <button
                 disabled={togglePublish.isPending}
                 onClick={() => {
-                  const payload = { id: confirmPublish.id, publish: confirmPublish.publish };
+                  const payload = { id: confirmPublish.id, publish: confirmPublish.publish, title: confirmPublish.title };
                   togglePublish.mutate(payload, { onSettled: () => setConfirmPublish(null) });
                 }}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60 ${confirmPublish.publish ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground border border-border"}`}
