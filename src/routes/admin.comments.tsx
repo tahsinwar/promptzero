@@ -180,7 +180,15 @@ function Page() {
                 <tr><td colSpan={6} className="p-0"><AdminTableSkeleton rows={4} cols={6} /></td></tr>
               )}
               {(questions.data ?? []).map((q: any) => (
-                <QRow key={q.id} q={q} onSave={updateQ.mutate} onDelete={removeQ.mutate} pendingSave={updateQ.isPending} pendingDelete={removeQ.isPending} />
+                <QRow
+                  key={q.id}
+                  q={q}
+                  onSave={updateQ.mutate}
+                  onDelete={removeQ.mutate}
+                  pendingSave={updateQ.isPending && (updateQ.variables as any)?.id === q.id}
+                  pendingDelete={removeQ.isPending && removeQ.variables === q.id}
+                  anyMutating={updateQ.isPending || removeQ.isPending}
+                />
               ))}
               {questions.data && questions.data.length === 0 && (
                 <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No questions.</td></tr>
@@ -206,9 +214,10 @@ function TabLink({ tab, active, icon: Icon, label, badge }: any) {
   );
 }
 
-function QRow({ q, onSave, onDelete, pendingSave, pendingDelete }: any) {
+function QRow({ q, onSave, onDelete, pendingSave, pendingDelete, anyMutating }: any) {
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState(q.answer ?? "");
+  const busy = pendingSave || pendingDelete;
   return (
     <>
       <tr className="border-t border-border/60 align-top">
@@ -226,11 +235,24 @@ function QRow({ q, onSave, onDelete, pendingSave, pendingDelete }: any) {
         <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(q.created_at).toLocaleDateString()}</td>
         <td className="p-3">
           <div className="flex justify-end gap-1">
-            <button onClick={() => setOpen((o) => !o)} className="rounded-md bg-primary/15 text-primary px-2.5 py-1 text-xs font-semibold hover:bg-primary/25">{open ? "Close" : "Answer"}</button>
+            <button disabled={busy} onClick={() => setOpen((o) => !o)} className="rounded-md bg-primary/15 text-primary px-2.5 py-1 text-xs font-semibold hover:bg-primary/25 disabled:opacity-60">{open ? "Close" : "Answer"}</button>
             {q.is_published && (
-              <button onClick={() => { onSave({ id: q.id, patch: { is_published: false } }); toast.success("Unpublished"); }} className="rounded-md border border-border px-2.5 py-1 text-xs">Unpublish</button>
+              <button
+                disabled={busy || anyMutating}
+                onClick={() => { onSave({ id: q.id, patch: { is_published: false } }); toast.success("Unpublished"); }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs disabled:opacity-60"
+              >
+                {pendingSave && <Loader2 className="h-3 w-3 animate-spin" />}Unpublish
+              </button>
             )}
-            <button disabled={pendingDelete} onClick={() => confirm("Delete question?") && onDelete(q.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
+            <button
+              disabled={busy}
+              onClick={() => confirm("Delete question?") && onDelete(q.id)}
+              className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60"
+              title="Delete"
+            >
+              {pendingDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
           </div>
         </td>
       </tr>
@@ -242,11 +264,17 @@ function QRow({ q, onSave, onDelete, pendingSave, pendingDelete }: any) {
             <div className="mt-2 flex gap-2">
               <button
                 onClick={() => { onSave({ id: q.id, patch: { answer, is_published: true } }); toast.success("Published"); setOpen(false); }}
-                disabled={!answer.trim() || pendingSave}
+                disabled={!answer.trim() || busy}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50">
                 {pendingSave ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Publish answer
               </button>
-              <button disabled={pendingSave} onClick={() => { onSave({ id: q.id, patch: { answer, is_published: false } }); toast.success("Saved"); }} className="rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-60">Save draft</button>
+              <button
+                disabled={busy}
+                onClick={() => { onSave({ id: q.id, patch: { answer, is_published: false } }); toast.success("Saved"); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs disabled:opacity-60"
+              >
+                {pendingSave && <Loader2 className="h-3 w-3 animate-spin" />}Save draft
+              </button>
             </div>
           </td>
         </tr>
