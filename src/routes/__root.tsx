@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { SiteLayout } from "@/components/layout/site-layout";
+import { GlobalLoader } from "@/components/global-loader";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -80,6 +81,7 @@ function RootComponent() {
           <SiteLayout>
             <Outlet />
           </SiteLayout>
+          <GlobalLoader />
           <Toaster richColors position="bottom-right" />
         </AuthProvider>
       </ThemeProvider>
