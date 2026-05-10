@@ -15,7 +15,7 @@ function useSiteSettings() {
       const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
       return (data?.settings ?? {}) as Settings;
     },
-    staleTime: 60_000,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
