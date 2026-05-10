@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { PromptCard } from "./index";
+import { PromptCard, type PromptListItem } from "@/components/prompt-card";
 
 export const Route = createFileRoute("/browse")({
   component: Browse,
@@ -23,8 +23,17 @@ function Browse() {
 
   const { data: prompts } = useQuery({
     queryKey: ["all-prompts"],
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,view_count,copy_count,difficulty,ai_models,is_featured,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
   });
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
+      return (data?.settings ?? {}) as { default_pin?: string };
+    },
+  });
+  const defaultPin = settingsData?.default_pin || "00000";
 
   const filtered = useMemo(() => {
     if (!prompts) return [];
@@ -68,7 +77,7 @@ function Browse() {
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((p, i) => (
           <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-            <PromptCard p={p} />
+            <PromptCard p={p as unknown as PromptListItem} defaultPin={defaultPin} />
           </motion.div>
         ))}
         {filtered.length === 0 && (

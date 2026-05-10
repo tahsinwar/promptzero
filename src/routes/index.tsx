@@ -69,9 +69,8 @@ function HomePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const setParams = (patch: Partial<HomeSearch>) =>
-    navigate({ to: "/", search: (prev) => {
-      const next = { ...prev, ...patch };
-      // strip undefined/empty
+    navigate({ to: "/", search: (prev: HomeSearch) => {
+      const next: HomeSearch = { ...prev, ...patch };
       (Object.keys(next) as (keyof HomeSearch)[]).forEach((k) => { if (!next[k]) delete next[k]; });
       return next;
     }});
