@@ -143,14 +143,34 @@ function Page() {
                     <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(c.created_at).toLocaleDateString()}</td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
-                        {!c.is_approved && (
-                          <button disabled={updateC.isPending} title="Approve" onClick={() => updateC.mutate({ id: c.id, patch: { is_approved: true } })} className="rounded-md bg-primary/15 text-primary p-2 hover:bg-primary/25 disabled:opacity-60"><Check className="h-4 w-4" /></button>
-                        )}
-                        <button disabled={updateC.isPending} title="Pin" onClick={() => updateC.mutate({ id: c.id, patch: { is_pinned: !c.is_pinned } })} className={`rounded-md p-2 disabled:opacity-60 ${c.is_pinned ? "bg-accent/15 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}><Pin className="h-4 w-4" /></button>
-                        {c.ip_address && (
-                          <button disabled={blockIP.isPending} title="Block IP" onClick={() => confirm(`Block ${c.ip_address}?`) && blockIP.mutate(c.ip_address)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60"><Ban className="h-4 w-4" /></button>
-                        )}
-                        <button disabled={removeC.isPending} title="Delete" onClick={() => confirm("Delete comment?") && removeC.mutate(c.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60">{removeC.isPending && removeC.variables === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
+                        {(() => {
+                          const isUpdating = updateC.isPending && (updateC.variables as any)?.id === c.id;
+                          const isApproving = isUpdating && (updateC.variables as any)?.patch?.is_approved !== undefined;
+                          const isPinning = isUpdating && (updateC.variables as any)?.patch?.is_pinned !== undefined;
+                          const isBlocking = blockIP.isPending && blockIP.variables === c.ip_address;
+                          const isDeleting = removeC.isPending && removeC.variables === c.id;
+                          const rowBusy = isUpdating || isBlocking || isDeleting;
+                          return (
+                            <>
+                              {!c.is_approved && (
+                                <button disabled={rowBusy} title="Approve" onClick={() => updateC.mutate({ id: c.id, patch: { is_approved: true } })} className="rounded-md bg-primary/15 text-primary p-2 hover:bg-primary/25 disabled:opacity-60">
+                                  {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                </button>
+                              )}
+                              <button disabled={rowBusy} title="Pin" onClick={() => updateC.mutate({ id: c.id, patch: { is_pinned: !c.is_pinned } })} className={`rounded-md p-2 disabled:opacity-60 ${c.is_pinned ? "bg-accent/15 text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                                {isPinning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
+                              </button>
+                              {c.ip_address && (
+                                <button disabled={rowBusy} title="Block IP" onClick={() => confirm(`Block ${c.ip_address}?`) && blockIP.mutate(c.ip_address)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60">
+                                  {isBlocking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                                </button>
+                              )}
+                              <button disabled={rowBusy} title="Delete" onClick={() => confirm("Delete comment?") && removeC.mutate(c.id)} className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-60">
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              </button>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                   </tr>
