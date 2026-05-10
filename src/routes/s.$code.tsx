@@ -23,9 +23,5 @@ function ShortRedirect() {
     return () => { cancelled = true; };
   }, [code, nav]);
 
-  return (
-    <div className="min-h-[40vh] grid place-items-center text-sm text-muted-foreground">
-      Resolving link…
-    </div>
-  );
+  return null;
 }
