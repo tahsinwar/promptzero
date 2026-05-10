@@ -127,11 +127,28 @@ function PromptsList() {
       if (error) throw error;
       return p;
     },
+    onMutate: async (p) => {
+      await qc.cancelQueries({ queryKey: ["admin-prompts"] });
+      const previous = qc.getQueryData<any[]>(["admin-prompts"]);
+      qc.setQueryData<any[]>(["admin-prompts"], (old) =>
+        (old ?? []).map((row: any) =>
+          row.id === p.id
+            ? { ...row, status: p.publish ? "published" : "draft", is_published: p.publish }
+            : row,
+        ),
+      );
+      return { previous };
+    },
+    onError: (e: any, _p, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["admin-prompts"], ctx.previous);
+      toast.error(e.message);
+    },
     onSuccess: (p) => {
-      qc.invalidateQueries({ queryKey: ["admin-prompts"] });
       toast.success(p.publish ? "Published" : "Unpublished");
     },
-    onError: (e: any) => toast.error(e.message),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["admin-prompts"] });
+    },
   });
 
   return (
