@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2 } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2 } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
+import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
 import bcrypt from "bcryptjs";
 
@@ -58,6 +59,7 @@ function EditPrompt() {
   const [links, setLinks] = useState<any[]>([]);
   const [qa, setQa] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"], staleTime: 5 * 60 * 1000,
@@ -253,6 +255,11 @@ function EditPrompt() {
                 {duplicate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />} Duplicate
               </button>
             )}
+            {!isNew && form.slug && (
+              <button onClick={() => setShareOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
+                <Share2 className="h-4 w-4" /> Share
+              </button>
+            )}
             {!isNew && (
               <button disabled={remove.isPending} onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 text-destructive px-3 py-2 text-sm hover:bg-destructive/10 disabled:opacity-60">
                 <Trash2 className="h-4 w-4" /> Delete
@@ -420,6 +427,12 @@ function EditPrompt() {
           <pre className="mt-4 text-xs font-mono whitespace-pre-wrap break-words rounded-lg bg-secondary/40 p-3 leading-relaxed">{form.content || "Prompt content will appear here…"}</pre>
         </div>
       </aside>
+      <ShareModal
+        open={shareOpen}
+        url={typeof window !== "undefined" && form.slug ? `${window.location.origin}/p/${form.slug}` : ""}
+        title={form.title}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }
