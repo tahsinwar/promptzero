@@ -698,6 +698,23 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     return { hasIssue, dupes, renderMismatch, gaps, missingOrder, missingCreated, unsaved, total: items.length };
   }, [items]);
 
+  // Server-side mirror of the same check (via SQL function check_sub_prompt_order).
+  // Useful to confirm the DB agrees with what we computed from fetched data.
+  const { data: serverReport, refetch: refetchServerReport } = useQuery({
+    queryKey: ["sub-prompt-order-check", promptId],
+    enabled: !!promptId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("check_sub_prompt_order" as any, { p_id: promptId });
+      if (error) throw error;
+      return data as { total: number; duplicates: number; gaps_or_mismatches: number; missing_display_order: number; missing_created_at: number; consistent: boolean };
+    },
+  });
+
+  const serverClientAgree = !serverReport
+    ? null
+    : (serverReport.consistent === !orderReport.hasIssue);
+
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
