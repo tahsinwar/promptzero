@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
   Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
-  Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock,
+  Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock, Info, X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/slug";
@@ -58,7 +58,7 @@ function PromptDetail() {
     queryFn: async () => {
       const { data: p } = await supabase
         .from("prompts")
-        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*)")
+        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*), sub_prompts(*)")
         .eq("slug", slug)
         .eq("is_published", true)
         .maybeSingle();
