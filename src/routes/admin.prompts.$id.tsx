@@ -938,12 +938,28 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                     <div className="rounded border border-border bg-background/60 px-2 py-1.5">
                       {!autoFixPending ? (
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-[11px] text-muted-foreground">
-                            Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
-                            {autoFixPreview.moves.length > 0 && (
-                              <span className="ml-1 text-foreground">
-                                {autoFixPreview.moves.length} item{autoFixPreview.moves.length === 1 ? "" : "s"} will move.
-                              </span>
+                          <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                            <div>
+                              Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
+                            </div>
+                            {autoFixPreview.moves.length === 0 ? (
+                              <div className="text-foreground">
+                                Order already matches the server sort — nothing to reorder ({autoFixPreview.total} item{autoFixPreview.total === 1 ? "" : "s"}: {autoFixPreview.savedCount} saved, {autoFixPreview.unsavedCount} unsaved).
+                              </div>
+                            ) : (
+                              <div className="text-foreground">
+                                <span className="font-semibold">{autoFixPreview.moves.length}</span> of {autoFixPreview.total} item{autoFixPreview.total === 1 ? "" : "s"} will move
+                                {" "}(<span className="font-mono">{autoFixPreview.savedMoves}</span> saved, <span className="font-mono">{autoFixPreview.unsavedMoves}</span> unsaved).
+                                {autoFixPreview.localOnly ? (
+                                  <span className="ml-1 rounded bg-muted px-1 py-px font-semibold text-foreground">
+                                    Local only — no DB writes
+                                  </span>
+                                ) : (
+                                  <span className="ml-1 rounded bg-primary/15 px-1 py-px font-semibold text-primary">
+                                    Will persist to DB
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                           <button
@@ -961,14 +977,19 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                           <div className="flex items-start gap-1.5 text-[11px] text-foreground">
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
                             <div>
-                              Confirm reorder: <span className="font-semibold">{autoFixPreview.moves.length}</span> item{autoFixPreview.moves.length === 1 ? "" : "s"} will move and the new <code className="font-mono">display_order</code> will be persisted immediately.
+                              Confirm reorder: <span className="font-semibold">{autoFixPreview.moves.length}</span> of {autoFixPreview.total} item{autoFixPreview.total === 1 ? "" : "s"} will move
+                              {" "}(<span className="font-mono">{autoFixPreview.savedMoves}</span> saved, <span className="font-mono">{autoFixPreview.unsavedMoves}</span> unsaved).
+                              {" "}
+                              {autoFixPreview.localOnly
+                                ? "Only local order will change — no DB writes until you press Save."
+                                : <>The new <code className="font-mono">display_order</code> will be persisted immediately.</>}
                             </div>
                           </div>
                           {autoFixPreview.moves.length > 0 && (
                             <ul className="max-h-32 overflow-auto rounded border border-border/60 bg-background/40 px-2 py-1 text-[10px] text-muted-foreground">
                               {autoFixPreview.moves.slice(0, 8).map((m, i) => (
                                 <li key={`${m.from}-${m.to}-${i}`} className="font-mono">
-                                  "{m.title}" — #{m.from + 1} → #{m.to + 1}
+                                  {m.isSaved ? "·" : "✱"} "{m.title}" — #{m.from + 1} → #{m.to + 1}
                                 </li>
                               ))}
                               {autoFixPreview.moves.length > 8 && (
@@ -992,7 +1013,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                               className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/25 disabled:opacity-60"
                             >
                               {autoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                              Confirm & save
+                              {autoFixPreview.localOnly ? "Confirm reorder" : "Confirm & save"}
                             </button>
                           </div>
                         </div>
