@@ -296,19 +296,24 @@ function EditPrompt() {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: data.id, tag_id })));
       }
       // duplicate sub_prompts too
+      // Centralized: route duplicate inserts through the same RPC so create
+      // and reorder paths share one code path. New ids (no `id` field) take
+      // the INSERT branch inside sync_sub_prompts.
       if (subPrompts.length) {
-        await supabase.from("sub_prompts" as any).insert(
-          subPrompts.map((s, i) => ({
-            prompt_id: data.id,
-            title: s.title || `Prompt ${i + 1}`,
-            content: s.content,
-            description: s.description || null,
-            ai_models: s.ai_models ?? [],
-            difficulty: s.difficulty || null,
-            notes: s.notes || null,
-            display_order: i,
-          })) as any,
-        );
+        const itemsPayload = subPrompts.map((s, i) => ({
+          id: null,
+          title: s.title || `Prompt ${i + 1}`,
+          content: s.content,
+          description: s.description || null,
+          ai_models: s.ai_models ?? [],
+          difficulty: s.difficulty || null,
+          notes: s.notes || null,
+        }));
+        const { error: dupErr } = await supabase.rpc("sync_sub_prompts" as any, {
+          p_id: data.id,
+          items: itemsPayload as any,
+        });
+        if (dupErr) throw dupErr;
       }
       return data.id as string;
     },
