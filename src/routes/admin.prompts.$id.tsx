@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -628,6 +628,32 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
     [next[i], next[j]] = [next[j], next[i]];
     setItems(next);
   };
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const reorder = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+  };
+  const onDragStart = (i: number) => (e: React.DragEvent) => {
+    setDragIdx(i);
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", String(i)); } catch {}
+  };
+  const onDragOver = (i: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (overIdx !== i) setOverIdx(i);
+  };
+  const onDrop = (i: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragIdx !== null) reorder(dragIdx, i); // optimistic — UI updates immediately
+    setDragIdx(null);
+    setOverIdx(null);
+  };
+  const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   const toggleModel = (i: number, m: string) => {
     const cur = items[i].ai_models ?? [];
     update(i, { ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
@@ -658,8 +684,23 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
           const contentMissing = !s.content.trim();
           const hasError = titleMissing || contentMissing;
           return (
-          <div key={i} className={`rounded-lg border bg-card/40 p-4 space-y-3 ${hasError ? "border-destructive/50" : "border-border"}`}>
+          <div
+            key={s.id ?? `new-${i}`}
+            onDragOver={onDragOver(i)}
+            onDrop={onDrop(i)}
+            onDragEnd={onDragEnd}
+            className={`rounded-lg border bg-card/40 p-4 space-y-3 transition ${hasError ? "border-destructive/50" : "border-border"} ${dragIdx === i ? "opacity-50" : ""} ${overIdx === i && dragIdx !== null && dragIdx !== i ? "ring-2 ring-primary/60" : ""}`}
+          >
             <div className="flex items-center gap-2">
+              <span
+                draggable
+                onDragStart={onDragStart(i)}
+                onDragEnd={onDragEnd}
+                title="Drag to reorder"
+                className="cursor-grab active:cursor-grabbing grid h-8 w-6 place-items-center rounded text-muted-foreground hover:text-foreground"
+              >
+                <GripVertical className="h-4 w-4" />
+              </span>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</span>
               <input
                 placeholder="Sub-prompt title"
