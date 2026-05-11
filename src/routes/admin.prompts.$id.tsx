@@ -1427,7 +1427,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                           <span className="font-semibold text-foreground">
                             {lastUndoActivity.kind === "applied" && "applied"}
                             {lastUndoActivity.kind === "dismissed" && "dismissed"}
-                            {lastUndoActivity.kind === "expired" && "expired (manual edit detected)"}
+                            {lastUndoActivity.kind === "expired" && "expired"}
                             {lastUndoActivity.kind === "redone" && "redone"}
                           </span>
                           {" "}· {new Date(lastUndoActivity.at).toLocaleTimeString()}
