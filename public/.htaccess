@@ -1,0 +1,57 @@
+# SPA routing for Apache (cPanel shared hosting)
+# সব unknown route কে index.html এ পাঠাবে যাতে client-side routing কাজ করে
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # HTTPS এ redirect (optional — comment out করুন যদি না লাগে)
+  # RewriteCond %{HTTPS} off
+  # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # যদি request টা real file বা directory হয়, সরাসরি serve করো
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # বাকি সব route কে index.html এ পাঠাও (SPA fallback)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Gzip compression — page load দ্রুত হবে
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# Browser caching — static asset গুলো cache হবে
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  # index.html কে cache করতে দিও না — নতুন deploy এ পুরাতন version দেখাবে
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# Default file
+DirectoryIndex index.html
+
+# Directory listing বন্ধ
+Options -Indexes
+
+# Custom 404 — SPA তে এটা index.html ই handle করবে
+ErrorDocument 404 /index.html
