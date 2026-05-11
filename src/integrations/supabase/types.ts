@@ -389,6 +389,56 @@ export type Database = {
           },
         ]
       }
+      sub_prompts: {
+        Row: {
+          ai_models: string[] | null
+          content: string
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          display_order: number
+          id: string
+          notes: string | null
+          prompt_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_models?: string[] | null
+          content?: string
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          display_order?: number
+          id?: string
+          notes?: string | null
+          prompt_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_models?: string[] | null
+          content?: string
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          display_order?: number
+          id?: string
+          notes?: string | null
+          prompt_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sub_prompts_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tags: {
         Row: {
           id: string
