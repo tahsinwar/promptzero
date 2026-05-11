@@ -309,6 +309,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
   }, [content]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const tokens = Math.ceil(content.length / 4);
+  const [fillEnabled, setFillEnabled] = useState(true);
 
   const buildContent = () => {
     let c = content;
@@ -347,6 +348,21 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {variables.length > 0 && unlocked && (
+            <button
+              onClick={() => setFillEnabled((v) => !v)}
+              aria-pressed={fillEnabled}
+              title={fillEnabled ? "Hide Fill in your values" : "Show Fill in your values"}
+              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
+                fillEnabled
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="h-3 w-3" />
+              Fill-in: {fillEnabled ? "On" : "Off"}
+            </button>
+          )}
           <button
             onClick={onInfo}
             aria-label="View info"
@@ -364,7 +380,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
         </div>
       </div>
 
-      {variables.length > 0 && unlocked && (
+      {variables.length > 0 && unlocked && fillEnabled && (
         <div className="border-b border-border bg-background/30 px-4 py-3">
           <div className="text-xs font-semibold inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Fill in your values</div>
           <div className="mt-2 grid sm:grid-cols-2 gap-2">
