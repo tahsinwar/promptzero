@@ -949,21 +949,6 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     onError: (e: any) => toast.error(e.message ?? "Undo failed"),
   });
 
-  // Any user-driven change to items invalidates the pending undo snapshot —
-  // the captured "previous" array no longer matches the editor's reality.
-  useEffect(() => {
-    if (!autoFixUndo) return;
-    // If items reference equals the snapshot's items, nothing changed.
-    // Otherwise, drop the undo if items diverges from BOTH the snapshot
-    // (pre-fix) and the post-fix proposed order.
-    const matchesProposed = items === autoFixPreview.proposed;
-    const matchesSnapshot = items === autoFixUndo.items;
-    if (!matchesProposed && !matchesSnapshot) {
-      setAutoFixUndo(null);
-    }
-    // intentionally only react to items identity changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
 
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
