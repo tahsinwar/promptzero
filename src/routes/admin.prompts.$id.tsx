@@ -1824,7 +1824,29 @@ function NotesEditor({ value, onChange }: { value: string; onChange: (v: string)
             {value.trim() ? (
               <ReactMarkdown>{value}</ReactMarkdown>
             ) : (
-              <p className="text-xs text-muted-foreground italic m-0">Preview will appear here…</p>
+              <div className="text-xs text-muted-foreground space-y-2">
+                <p className="m-0 italic">Notes is empty — try this Markdown:</p>
+                <pre className="m-0 whitespace-pre-wrap rounded bg-secondary/60 p-2 font-mono text-[11px] leading-relaxed text-foreground/80">{`# Heading 1
+## Heading 2
+
+**bold**, *italic*, ~~strike~~, \`inline code\`
+
+- Bullet item
+- Another item
+
+1. Numbered item
+2. Second item
+
+> Blockquote for tips or warnings
+
+[Link text](https://example.com)
+
+\`\`\`
+code block
+multiple lines
+\`\`\``}</pre>
+                <p className="m-0">Use the toolbar above or shortcuts: <span className="font-mono">Ctrl+B</span> bold, <span className="font-mono">Ctrl+I</span> italic, <span className="font-mono">Ctrl+E</span> code, <span className="font-mono">Ctrl+K</span> link.</p>
+              </div>
             )}
           </div>
         )}
