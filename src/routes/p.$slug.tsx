@@ -263,6 +263,7 @@ function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
       id: prompt.id, title: prompt.title, content: prompt.content,
       description: prompt.description, ai_models: prompt.ai_models,
       difficulty: prompt.difficulty, notes: prompt.notes,
+      copy_count: prompt.copy_count,
     }];
   }, [prompt]);
 
