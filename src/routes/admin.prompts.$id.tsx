@@ -715,6 +715,13 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     ? null
     : (serverReport.consistent === !orderReport.hasIssue);
 
+  // Re-run server check when the persisted DB snapshot changes (after save reload).
+  const dbSig = useMemo(
+    () => items.filter((s) => s.id).map((s) => `${s.id}:${s.saved_display_order ?? "?"}`).join("|"),
+    [items],
+  );
+  useEffect(() => { if (promptId) refetchServerReport(); }, [dbSig, promptId, refetchServerReport]);
+
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
