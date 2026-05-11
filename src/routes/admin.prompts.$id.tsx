@@ -1647,6 +1647,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                 <NotesEditor
                   value={s.notes}
                   onChange={(v) => update(i, { notes: v })}
+                  storageKey={`notes-preview:${promptId ?? "new"}:${s.id ?? `idx-${i}`}`}
                 />
               </div>
             </details>
@@ -1681,11 +1682,19 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   );
 }
 
-function NotesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function NotesEditor({ value, onChange, storageKey }: { value: string; onChange: (v: string) => void; storageKey?: string }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const syncSource = useRef<"editor" | "preview" | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !storageKey) return false;
+    try { return window.localStorage.getItem(storageKey) === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !storageKey) return;
+    try { window.localStorage.setItem(storageKey, showPreview ? "1" : "0"); } catch {}
+  }, [showPreview, storageKey]);
 
   const ratio = (el: HTMLElement) => {
     const max = el.scrollHeight - el.clientHeight;
