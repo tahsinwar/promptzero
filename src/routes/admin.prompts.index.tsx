@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive } from "lucide-react";
 import JSZip from "jszip";
@@ -17,6 +17,7 @@ type Status = typeof STATUSES[number];
 function PromptsList() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
@@ -29,6 +30,18 @@ function PromptsList() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
   const [exporting, setExporting] = useState<string | "bulk" | null>(null);
   const [exportingZip, setExportingZip] = useState<string | "bulk" | null>(null);
+
+  // Debounce search input → query
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [status, categoryId]);
 
   const fetchExportData = async (ids: string[]) => {
     const [pRes, sRes, tRes, lRes, vRes, qRes] = await Promise.all([
@@ -253,30 +266,42 @@ function PromptsList() {
     queryFn: async () => (await supabase.from("categories").select("id,name").order("name")).data ?? [],
   });
 
-  const { data: prompts = [], isLoading } = useQuery({
-    queryKey: ["admin-prompts"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () =>
-      (
-        await supabase
-          .from("prompts")
-          .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)")
-          .order("created_at", { ascending: false })
-          .limit(500)
-      ).data ?? [],
+  const promptsQueryKey = ["admin-prompts", { page, search, status, categoryId }] as const;
+  const { data: pageData, isLoading, isFetching } = useQuery({
+    queryKey: promptsQueryKey,
+    staleTime: 60 * 1000,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      let q = supabase
+        .from("prompts")
+        .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+      if (status !== "all") q = q.eq("status", status);
+      if (categoryId !== "all") q = q.eq("category_id", categoryId);
+      const { data, count, error } = await q;
+      if (error) throw error;
+      return { rows: data ?? [], total: count ?? 0 };
+    },
   });
 
-  const filtered = useMemo(() => {
-    return prompts.filter((p: any) => {
-      if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (status !== "all" && p.status !== status) return false;
-      if (categoryId !== "all" && p.category_id !== categoryId) return false;
-      return true;
-    });
-  }, [prompts, search, status, categoryId]);
+  const pageItems = pageData?.rows ?? [];
+  const total = pageData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Fetch all IDs matching the current filters (for "Export all" / select-all-filtered)
+  const fetchFilteredIds = async (): Promise<string[]> => {
+    let q = supabase.from("prompts").select("id").order("created_at", { ascending: false });
+    if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+    if (status !== "all") q = q.eq("status", status);
+    if (categoryId !== "all") q = q.eq("category_id", categoryId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.id);
+  };
 
   const toggleSel = (id: string) => {
     const next = new Set(selected);
@@ -359,18 +384,22 @@ function PromptsList() {
     },
     onMutate: async (p) => {
       await qc.cancelQueries({ queryKey: ["admin-prompts"] });
-      const previous = qc.getQueryData<any[]>(["admin-prompts"]);
-      qc.setQueryData<any[]>(["admin-prompts"], (old) =>
-        (old ?? []).map((row: any) =>
-          row.id === p.id
-            ? { ...row, status: p.publish ? "published" : "draft", is_published: p.publish }
-            : row,
-        ),
-      );
-      return { previous };
+      const snapshots = qc.getQueriesData<{ rows: any[]; total: number }>({ queryKey: ["admin-prompts"] });
+      qc.setQueriesData<{ rows: any[]; total: number }>({ queryKey: ["admin-prompts"] }, (old) => {
+        if (!old) return old as any;
+        return {
+          ...old,
+          rows: old.rows.map((row: any) =>
+            row.id === p.id
+              ? { ...row, status: p.publish ? "published" : "draft", is_published: p.publish }
+              : row,
+          ),
+        };
+      });
+      return { snapshots };
     },
     onError: (e: any, p, ctx) => {
-      if (ctx?.previous) qc.setQueryData(["admin-prompts"], ctx.previous);
+      ctx?.snapshots?.forEach(([key, data]) => qc.setQueryData(key, data));
       toast.error(`Failed to ${p.publish ? "publish" : "move to draft"} "${p.title}"`, {
         description: e.message,
       });
