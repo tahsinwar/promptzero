@@ -1703,6 +1703,7 @@ function NotesEditor({ value, onChange, storageKey }: { value: string; onChange:
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const syncSource = useRef<"editor" | "preview" | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [showPreview, setShowPreview] = useState<boolean>(() => {
     if (typeof window === "undefined" || !storageKey) return false;
     try { return window.localStorage.getItem(storageKey) === "1"; } catch { return false; }
@@ -1849,6 +1850,15 @@ function NotesEditor({ value, onChange, storageKey }: { value: string; onChange:
         <span className="mx-0.5 h-4 w-px bg-border" />
         <button
           type="button"
+          onClick={() => setShowHelp(true)}
+          title="Markdown shortcuts & syntax help"
+          aria-label="Markdown help"
+          className={btn}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
           onClick={() => setShowPreview((v) => !v)}
           title={showPreview ? "Hide preview" : "Show preview"}
           aria-pressed={showPreview}
@@ -1915,6 +1925,69 @@ multiple lines
             )}
           </div>
         )}
+      </div>
+      {showHelp && <NotesHelpDialog onClose={() => setShowHelp(false)} />}
+    </div>
+  );
+}
+
+function NotesHelpDialog({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const Row = ({ syntax, shortcut, demo }: { syntax: React.ReactNode; shortcut?: string; demo: React.ReactNode }) => (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 border-b border-border/60 py-2 last:border-b-0">
+      <pre className="m-0 whitespace-pre-wrap rounded bg-secondary/60 px-2 py-1 font-mono text-[11px] leading-relaxed text-foreground/80">{syntax}</pre>
+      <span className="self-center text-[10px] font-mono text-muted-foreground min-w-[64px] text-center">
+        {shortcut ?? "—"}
+      </span>
+      <div className="text-sm prose prose-invert prose-sm max-w-none prose-p:m-0 prose-headings:m-0 prose-headings:font-semibold prose-ul:m-0 prose-ol:m-0 prose-blockquote:m-0 prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5">
+        {demo}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={onClose}>
+      <div className="vault-card rounded-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-primary" />
+            <h3 className="text-base font-bold">Notes — Markdown cheatsheet</h3>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md border border-border text-muted-foreground hover:text-foreground" aria-label="Close"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="overflow-auto px-5 py-3">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-3 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div>Syntax</div>
+            <div className="text-center min-w-[64px]">Shortcut</div>
+            <div>Renders as</div>
+          </div>
+          <Row syntax={"# Heading 1"} demo={<h1>Heading 1</h1>} />
+          <Row syntax={"## Heading 2"} demo={<h2>Heading 2</h2>} />
+          <Row syntax={"### Heading 3"} demo={<h3>Heading 3</h3>} />
+          <Row syntax={"**bold text**"} shortcut="Ctrl+B" demo={<p><strong>bold text</strong></p>} />
+          <Row syntax={"*italic text*"} shortcut="Ctrl+I" demo={<p><em>italic text</em></p>} />
+          <Row syntax={"~~strikethrough~~"} demo={<p><s>strikethrough</s></p>} />
+          <Row syntax={"`inline code`"} shortcut="Ctrl+E" demo={<p><code>inline code</code></p>} />
+          <Row
+            syntax={"```\ncode block\nmulti-line\n```"}
+            demo={<pre className="m-0 rounded bg-secondary/60 px-2 py-1 font-mono text-[11px]">code block{"\n"}multi-line</pre>}
+          />
+          <Row syntax={"[link text](https://example.com)"} shortcut="Ctrl+K" demo={<p><a href="https://example.com" target="_blank" rel="noreferrer">link text</a></p>} />
+          <Row syntax={"- item one\n- item two"} demo={<ul><li>item one</li><li>item two</li></ul>} />
+          <Row syntax={"1. first\n2. second"} demo={<ol><li>first</li><li>second</li></ol>} />
+          <Row syntax={"> quoted tip or warning"} demo={<blockquote>quoted tip or warning</blockquote>} />
+          <Row syntax={"---"} demo={<hr />} />
+          <Row syntax={"![alt](image-url.jpg)"} demo={<p className="text-muted-foreground italic">image (renders inline)</p>} />
+        </div>
+        <div className="border-t border-border px-5 py-3 text-xs text-muted-foreground flex items-center justify-between gap-3">
+          <span>HTML tags are stripped for safety. Only <span className="font-mono">http(s)/mailto/tel</span> links allowed.</span>
+          <button onClick={onClose} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">Got it</button>
+        </div>
       </div>
     </div>
   );
