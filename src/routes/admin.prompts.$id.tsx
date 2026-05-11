@@ -1658,6 +1658,16 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                 />
               </div>
             </details>
+            <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background/30 px-3 py-2 text-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={s.fill_in_enabled !== false}
+                onChange={(e) => update(i, { fill_in_enabled: e.target.checked })}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span className="font-semibold">Show "Fill in your values" on user end</span>
+              <span className="text-muted-foreground">— lets visitors replace [placeholders] before copying</span>
+            </label>
           </div>
           );
         })}
