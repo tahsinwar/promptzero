@@ -115,7 +115,15 @@ function PromptsList() {
     const subs: any[] = p.sub_prompts ?? [];
     if (subs.length) {
       const sf = base.folder("sub-prompts")!;
-      subs.forEach((s, i) => {
+      const sorted = [...subs].sort((a, b) => {
+        const ta = (a.title ?? "").toLowerCase();
+        const tb = (b.title ?? "").toLowerCase();
+        if (ta !== tb) return ta.localeCompare(tb);
+        const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return ca - cb;
+      });
+      sorted.forEach((s, i) => {
         const head = [
           `Title: ${s.title ?? ""}`,
           s.description ? `Description: ${s.description}` : null,
