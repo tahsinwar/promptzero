@@ -741,6 +741,15 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                 <li>missing display_order: {orderReport.missingOrder}</li>
                 <li>missing created_at: {orderReport.missingCreated} (safe fallback to id applied)</li>
                 <li>current order vs DB: {orderReport.renderMismatch ? "differs — save to persist" : "matches"}</li>
+                {serverReport && (
+                  <li>
+                    server check: {serverReport.consistent ? "consistent" : "inconsistent"}
+                    {" "}(gaps {serverReport.gaps_or_mismatches}, dupes {serverReport.duplicates})
+                    {serverClientAgree === false && (
+                      <span className="ml-1 font-semibold">— mismatch with client report!</span>
+                    )}
+                  </li>
+                )}
               </ul>
             </div>
           </div>
