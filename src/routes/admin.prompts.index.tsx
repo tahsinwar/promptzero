@@ -477,8 +477,13 @@ function PromptsList() {
         </select>
       </div>
 
-      <div className="vault-card rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="vault-card rounded-xl overflow-hidden relative">
+        {isFetching && !isLoading && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 overflow-hidden z-10">
+            <div className="h-full w-1/3 bg-primary/70 animate-[loading-bar_1.2s_ease-in-out_infinite]" />
+          </div>
+        )}
+        <div className={`overflow-x-auto transition-opacity ${isFetching && !isLoading ? "opacity-70" : ""}`}>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/30 text-xs uppercase tracking-wider text-muted-foreground">
@@ -494,9 +499,24 @@ function PromptsList() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && Array.from({ length: 6 }).map((_, i) => (
+              {isLoading && Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
-                  <td colSpan={7} className="px-3 py-3"><div className="h-6 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3"><div className="h-4 w-4 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-48 rounded bg-primary/10 animate-pulse" />
+                    <div className="mt-1.5 h-3 w-32 rounded bg-primary/5 animate-pulse" />
+                  </td>
+                  <td className="px-3 py-3"><div className="h-5 w-20 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3"><div className="h-5 w-16 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3"><div className="h-4 w-8 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3"><div className="h-3 w-16 rounded bg-primary/10 animate-pulse" /></td>
+                  <td className="px-3 py-3">
+                    <div className="flex justify-end gap-1">
+                      {Array.from({ length: 6 }).map((_, j) => (
+                        <div key={j} className="h-8 w-8 rounded bg-primary/10 animate-pulse" />
+                      ))}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!isLoading && pageItems.length === 0 && (
