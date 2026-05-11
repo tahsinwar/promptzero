@@ -618,6 +618,7 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
     const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
   };
   const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
     if (j < 0 || j >= items.length) return;
@@ -655,7 +656,7 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
               />
               <button onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronUp className="h-4 w-4" /></button>
               <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronDown className="h-4 w-4" /></button>
-              <button onClick={() => remove(i)} className="grid h-8 w-8 place-items-center rounded border border-destructive/40 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => setConfirmIdx(i)} className="grid h-8 w-8 place-items-center rounded border border-destructive/40 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
             </div>
 
             <textarea
@@ -717,6 +718,26 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
           <p className="text-sm text-muted-foreground">No sub-prompts yet. Click "Add sub-prompt" — every page needs at least one.</p>
         )}
       </div>
+
+      {confirmIdx !== null && items[confirmIdx] && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={() => setConfirmIdx(null)}>
+          <div className="vault-card rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Delete this sub-prompt?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              "{items[confirmIdx].title || `Prompt ${confirmIdx + 1}`}" will be removed from this page. Changes apply after you save.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setConfirmIdx(null)} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
+              <button
+                onClick={() => { remove(confirmIdx); setConfirmIdx(null); }}
+                className="rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-sm font-semibold"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
