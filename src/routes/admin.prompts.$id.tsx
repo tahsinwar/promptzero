@@ -408,7 +408,11 @@ function EditPrompt() {
             <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)} rows={2} className={inputCls} />
           </Field>
           <Field label="Notes (markdown, page-level)">
-            <textarea value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} rows={4} className={`${inputCls} font-mono text-sm`} />
+            <NotesEditor
+              value={form.notes ?? ""}
+              onChange={(v) => updateForm("notes", v)}
+              storageKey={`notes-preview:page:${isNew ? "new" : id}`}
+            />
           </Field>
 
           <div className="grid sm:grid-cols-2 gap-4">
