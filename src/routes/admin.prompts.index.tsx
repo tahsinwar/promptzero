@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive } from "lucide-react";
+import JSZip from "jszip";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 import { ShareModal } from "@/components/share-modal";
@@ -27,6 +28,7 @@ function PromptsList() {
   const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
   const [exporting, setExporting] = useState<string | "bulk" | null>(null);
+  const [exportingZip, setExportingZip] = useState<string | "bulk" | null>(null);
 
   const fetchExportData = async (ids: string[]) => {
     const [pRes, sRes, tRes, lRes, vRes, qRes] = await Promise.all([
@@ -85,6 +87,72 @@ function PromptsList() {
       toast.success(`Exported ${rows.length} prompts`);
     } catch (e: any) { toast.error(e.message ?? "Export failed"); }
     finally { setExporting(null); }
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const safeName = (s: string) => (s || "untitled").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+
+  const addPromptToZip = (zip: JSZip, p: any, folder?: string) => {
+    const base = folder ? zip.folder(folder)! : zip;
+    const header = [
+      `Title: ${p.title ?? ""}`,
+      p.description ? `Description: ${p.description}` : null,
+      p.difficulty ? `Difficulty: ${p.difficulty}` : null,
+      p.ai_models?.length ? `AI Models: ${p.ai_models.join(", ")}` : null,
+      "",
+      "---",
+      "",
+    ].filter(Boolean).join("\n");
+    base.file("main.txt", header + (p.content ?? ""));
+    if (p.notes) base.file("notes.md", p.notes);
+    const subs: any[] = p.sub_prompts ?? [];
+    if (subs.length) {
+      const sf = base.folder("sub-prompts")!;
+      subs.forEach((s, i) => {
+        const head = [
+          `Title: ${s.title ?? ""}`,
+          s.description ? `Description: ${s.description}` : null,
+          s.difficulty ? `Difficulty: ${s.difficulty}` : null,
+          s.ai_models?.length ? `AI Models: ${s.ai_models.join(", ")}` : null,
+          "",
+          "---",
+          "",
+        ].filter(Boolean).join("\n");
+        const body = (s.content ?? "") + (s.notes ? `\n\n---\nNotes:\n${s.notes}` : "");
+        sf.file(`${pad(i + 1)}-${safeName(s.title) || "sub-prompt"}.txt`, head + body);
+      });
+    }
+    base.file("prompt.json", JSON.stringify(p, null, 2));
+  };
+
+  const exportOneZip = async (p: { id: string; title: string; slug: string }) => {
+    try {
+      setExportingZip(p.id);
+      const rows = await fetchExportData([p.id]);
+      if (!rows.length) throw new Error("Not found");
+      const zip = new JSZip();
+      addPromptToZip(zip, rows[0]);
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, `prompt-${p.slug || p.id}.zip`);
+      toast.success("Exported ZIP");
+    } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+    finally { setExportingZip(null); }
+  };
+
+  const exportManyZip = async (ids: string[], filename: string) => {
+    const rows = await fetchExportData(ids);
+    const zip = new JSZip();
+    rows.forEach((p: any) => addPromptToZip(zip, p, `${safeName(p.title) || p.slug || p.id}`));
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(blob, filename);
+    return rows.length;
   };
 
   const { data: cats = [] } = useQuery({
