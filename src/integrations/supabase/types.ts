@@ -393,6 +393,7 @@ export type Database = {
         Row: {
           ai_models: string[] | null
           content: string
+          copy_count: number
           created_at: string
           description: string | null
           difficulty: string | null
@@ -406,6 +407,7 @@ export type Database = {
         Insert: {
           ai_models?: string[] | null
           content?: string
+          copy_count?: number
           created_at?: string
           description?: string | null
           difficulty?: string | null
@@ -419,6 +421,7 @@ export type Database = {
         Update: {
           ai_models?: string[] | null
           content?: string
+          copy_count?: number
           created_at?: string
           description?: string | null
           difficulty?: string | null
@@ -531,6 +534,10 @@ export type Database = {
       increment_comment_upvote: { Args: { c_id: string }; Returns: undefined }
       increment_copy_count: { Args: { p_id: string }; Returns: undefined }
       increment_link_clicks: { Args: { l_id: string }; Returns: undefined }
+      increment_sub_prompt_copy_count: {
+        Args: { s_id: string }
+        Returns: undefined
+      }
       increment_view_count: { Args: { p_slug: string }; Returns: undefined }
     }
     Enums: {
