@@ -815,11 +815,25 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   const [autoFixUndo, setAutoFixUndo] = useState<
     | {
         items: SubPrompt[];
+        postFixItems: SubPrompt[];
         persisted: boolean;
         movedCount: number;
       }
     | null
   >(null);
+
+  // Auto-dismiss the Undo banner the moment the user does anything that mutates
+  // items outside of Auto-fix / Undo themselves (manual edit, drag-reorder,
+  // add, remove). We detect that by comparing the current items reference to
+  // the snapshot captured after the last Auto-fix ran. setItems always
+  // produces a new array reference for real mutations, so a divergence here
+  // means the snapshot is stale and Undo would restore the wrong state.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    if (items !== autoFixUndo.postFixItems) {
+      setAutoFixUndo(null);
+    }
+  }, [items, autoFixUndo]);
 
   // Preview of what auto-fix will change: returns the proposed order and the
   // list of items whose rendered position would move. Computed without
@@ -872,7 +886,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       setItems(next);
 
       if (!promptId) {
-        return { reordered: next.length, persisted: false, prev, movedCount };
+        return { reordered: next.length, persisted: false, prev, next, movedCount };
       }
 
       // Same payload shape used by the parent Save mutation.
@@ -890,11 +904,16 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true, prev, movedCount };
+      return { reordered: next.length, persisted: true, prev, next, movedCount };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
-      setAutoFixUndo({ items: res.prev, persisted: res.persisted, movedCount: res.movedCount });
+      setAutoFixUndo({
+        items: res.prev,
+        postFixItems: res.next,
+        persisted: res.persisted,
+        movedCount: res.movedCount,
+      });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
