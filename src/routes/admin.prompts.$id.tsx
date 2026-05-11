@@ -856,6 +856,9 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
   const [autoFixPending, setAutoFixPending] = useState(false);
+  // How long the Undo snapshot stays live before auto-expiring. Reflected in
+  // the banner's countdown progress bar.
+  const UNDO_TIMEOUT_MS = 30000;
   // Snapshot captured at the moment Auto-fix runs, so the admin can undo the
   // reorder if the result wasn't what they expected. Cleared on any subsequent
   // manual edit, drag, or successful undo.
@@ -865,6 +868,21 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         postFixItems: SubPrompt[];
         persisted: boolean;
         movedCount: number;
+        moves: { title: string; from: number; to: number; isSaved: boolean }[];
+        expiresAt: number;
+      }
+    | null
+  >(null);
+  // Redo snapshot: captured right after a successful Undo so the admin can
+  // re-apply the Auto-fix in one click. Cleared by any subsequent manual edit
+  // or when a fresh Auto-fix runs.
+  const [autoFixRedo, setAutoFixRedo] = useState<
+    | {
+        items: SubPrompt[]; // the post-fix order to restore
+        postUndoItems: SubPrompt[]; // current items ref after undo applied
+        persisted: boolean;
+        movedCount: number;
+        moves: { title: string; from: number; to: number; isSaved: boolean }[];
       }
     | null
   >(null);
@@ -879,9 +897,37 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     if (!autoFixUndo) return;
     if (items !== autoFixUndo.postFixItems) {
       setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
       setLastUndoActivity({ kind: "expired", at: Date.now() });
     }
   }, [items, autoFixUndo]);
+
+  // Same idea for the Redo snapshot: if items diverges from the post-undo
+  // reference, the redo target is stale and silently expires.
+  useEffect(() => {
+    if (!autoFixRedo) return;
+    if (items !== autoFixRedo.postUndoItems) {
+      setAutoFixRedo(null);
+    }
+  }, [items, autoFixRedo]);
+
+  // Tick the clock while an Undo snapshot is live so the countdown progress
+  // bar can re-render. Stops as soon as the snapshot clears.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    const id = setInterval(() => setNowTick(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [autoFixUndo]);
+
+  // Auto-expire the Undo snapshot when its deadline passes.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    if (nowTick >= autoFixUndo.expiresAt) {
+      setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
+      setLastUndoActivity({ kind: "expired", at: Date.now() });
+    }
+  }, [nowTick, autoFixUndo]);
 
   // Auto-clear the activity indicator after a short delay so it stays brief.
   useEffect(() => {
