@@ -839,6 +839,91 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                   </li>
                 )}
               </ul>
+              {(orderReport.hasIssue || serverClientAgree === false) && (
+                <details className="mt-1 rounded border border-current/30 bg-background/40 text-foreground">
+                  <summary className="cursor-pointer px-2 py-1 text-[11px] font-semibold text-current">
+                    Breakdown — which items caused issues
+                  </summary>
+                  <div className="space-y-2 p-2 text-[11px] text-muted-foreground">
+                    {fieldDiff.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Client vs server field diff</div>
+                        <table className="mt-1 w-full text-left font-mono text-[10px]">
+                          <thead className="text-muted-foreground">
+                            <tr><th className="pr-3">field</th><th className="pr-3">client</th><th>server</th></tr>
+                          </thead>
+                          <tbody>
+                            {fieldDiff.map((r) => (
+                              <tr key={r.field}>
+                                <td className="pr-3">{r.field}</td>
+                                <td className="pr-3 text-amber-500">{String(r.client)}</td>
+                                <td className="text-amber-500">{String(r.server)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {orderReport.gapItems.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Gap / mismatch ({orderReport.gapItems.length})</div>
+                        <ul className="list-disc pl-4">
+                          {orderReport.gapItems.map((g) => (
+                            <li key={g.id}>
+                              #{g.idx + 1} "{g.title}" — saved <code className="font-mono">{g.saved}</code>, expected <code className="font-mono">{g.expected}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {orderReport.duplicateItems.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Duplicate display_order</div>
+                        <ul className="list-disc pl-4">
+                          {orderReport.duplicateItems.map((d) => (
+                            <li key={d.display_order}>
+                              value <code className="font-mono">{d.display_order}</code> shared by:{" "}
+                              {d.ids.map((x) => `#${x.idx + 1} "${x.title}"`).join(", ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {orderReport.renderMismatchItems.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Render vs DB order</div>
+                        <ul className="list-disc pl-4">
+                          {orderReport.renderMismatchItems.map((m) => (
+                            <li key={m.id}>
+                              "{m.title}" — rendered at position {m.rendered + 1}, DB sort says {m.expected + 1}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {orderReport.missingOrderItems.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Missing display_order</div>
+                        <ul className="list-disc pl-4">
+                          {orderReport.missingOrderItems.map((m) => (
+                            <li key={m.id}>#{m.idx + 1} "{m.title}"</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {orderReport.missingCreatedItems.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-foreground">Missing created_at (id fallback applied)</div>
+                        <ul className="list-disc pl-4">
+                          {orderReport.missingCreatedItems.map((m) => (
+                            <li key={m.id}>#{m.idx + 1} "{m.title}"</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
             </div>
           </div>
         </div>
