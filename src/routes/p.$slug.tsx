@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
   Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
-  Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock,
+  Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock, Info, X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/slug";
@@ -58,7 +58,7 @@ function PromptDetail() {
     queryFn: async () => {
       const { data: p } = await supabase
         .from("prompts")
-        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*)")
+        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*), sub_prompts(*)")
         .eq("slug", slug)
         .eq("is_published", true)
         .maybeSingle();
@@ -255,70 +255,24 @@ function PromptDetail() {
 
 /* ---------- Prompt Tab ---------- */
 function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
-  const [copied, setCopied] = useState(false);
-  const variables = useMemo(() => {
-    const set = new Set<string>();
-    const re = /\[([a-zA-Z0-9_\- ]+)\]/g;
-    let m;
-    while ((m = re.exec(prompt.content ?? "")) !== null) set.add(m[1]);
-    return Array.from(set);
-  }, [prompt.content]);
-  const [vals, setVals] = useState<Record<string, string>>({});
-  const tokens = Math.ceil((prompt.content?.length ?? 0) / 4);
+  const subs: any[] = useMemo(() => {
+    const list = (prompt.sub_prompts ?? []).slice().sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    if (list.length > 0) return list;
+    // Fallback: legacy single content
+    return [{
+      id: prompt.id, title: prompt.title, content: prompt.content,
+      description: prompt.description, ai_models: prompt.ai_models,
+      difficulty: prompt.difficulty, notes: prompt.notes,
+    }];
+  }, [prompt]);
 
-  const buildContent = () => {
-    let c: string = prompt.content ?? "";
-    for (const v of variables) {
-      const r = vals[v];
-      if (r) c = c.replaceAll(`[${v}]`, r);
-    }
-    return c;
-  };
-
-  const copy = async (custom = false) => {
-    if (!unlocked) { toast.error("Unlock the prompt first"); return; }
-    const text = custom ? buildContent() : (prompt.content ?? "");
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-    await supabase.rpc("increment_copy_count", { p_id: prompt.id });
-    toast.success("Copied to clipboard");
-  };
+  const [infoFor, setInfoFor] = useState<any | null>(null);
 
   return (
-    <div className="space-y-4">
-      {variables.length > 0 && unlocked && (
-        <div className="vault-card rounded-xl p-4">
-          <h4 className="text-sm font-semibold inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" /> Fill in your values</h4>
-          <div className="mt-3 grid sm:grid-cols-2 gap-2">
-            {variables.map((v) => (
-              <div key={v}>
-                <label className="text-xs text-muted-foreground">[{v}]</label>
-                <input value={vals[v] ?? ""} onChange={(e) => setVals({ ...vals, [v]: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-border bg-input/40 px-3 py-1.5 text-sm outline-none focus:border-primary" />
-              </div>
-            ))}
-          </div>
-          <button onClick={() => copy(true)} className="mt-3 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
-            Copy with my values
-          </button>
-        </div>
-      )}
-
-      <div className="vault-card rounded-xl">
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <span className="text-xs text-muted-foreground">~{tokens} tokens · {prompt.content?.length ?? 0} chars</span>
-          <button onClick={() => copy(false)} disabled={!unlocked} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow disabled:opacity-50">
-            <AnimatePresence mode="wait">
-              {copied ? <motion.span key="c" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Copied</motion.span>
-                : <motion.span key="i" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> Copy</motion.span>}
-            </AnimatePresence>
-          </button>
-        </div>
-        <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
-          {unlocked ? prompt.content : "🔒 Content locked — enter PIN to view"}
-        </pre>
-      </div>
+    <div className="space-y-5">
+      {subs.map((s, idx) => (
+        <SubPromptCard key={s.id ?? idx} sub={s} index={idx} total={subs.length} unlocked={unlocked} promptId={prompt.id} onInfo={() => setInfoFor(s)} />
+      ))}
 
       {(prompt.ai_models ?? []).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -328,6 +282,151 @@ function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
           ))}
         </div>
       )}
+
+      <SubPromptInfoModal sub={infoFor} onClose={() => setInfoFor(null)} />
+    </div>
+  );
+}
+
+function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub: any; index: number; total: number; unlocked: boolean; promptId: string; onInfo: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const content: string = sub.content ?? "";
+  const variables = useMemo(() => {
+    const set = new Set<string>();
+    const re = /\[([a-zA-Z0-9_\- ]+)\]/g;
+    let m;
+    while ((m = re.exec(content)) !== null) set.add(m[1]);
+    return Array.from(set);
+  }, [content]);
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const tokens = Math.ceil(content.length / 4);
+
+  const buildContent = () => {
+    let c = content;
+    for (const v of variables) if (vals[v]) c = c.replaceAll(`[${v}]`, vals[v]);
+    return c;
+  };
+
+  const copy = async (custom = false) => {
+    if (!unlocked) { toast.error("Unlock the prompt first"); return; }
+    await navigator.clipboard.writeText(custom ? buildContent() : content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    await supabase.rpc("increment_copy_count", { p_id: promptId });
+    toast.success("Copied to clipboard");
+  };
+
+  return (
+    <div className="vault-card rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5 gap-3">
+        <div className="min-w-0 flex items-center gap-2">
+          {total > 1 && (
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary shrink-0">
+              {index + 1}/{total}
+            </span>
+          )}
+          <h4 className="text-sm font-semibold truncate">{sub.title || `Prompt ${index + 1}`}</h4>
+          <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">· ~{tokens} tok</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={onInfo}
+            aria-label="View info"
+            title="Info"
+            className="grid h-8 w-8 place-items-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+          <button onClick={() => copy(false)} disabled={!unlocked} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow disabled:opacity-50">
+            <AnimatePresence mode="wait">
+              {copied ? <motion.span key="c" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Copied</motion.span>
+                : <motion.span key="i" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> Copy</motion.span>}
+            </AnimatePresence>
+          </button>
+        </div>
+      </div>
+
+      {variables.length > 0 && unlocked && (
+        <div className="border-b border-border bg-background/30 px-4 py-3">
+          <div className="text-xs font-semibold inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Fill in your values</div>
+          <div className="mt-2 grid sm:grid-cols-2 gap-2">
+            {variables.map((v) => (
+              <div key={v}>
+                <label className="text-[10px] text-muted-foreground">[{v}]</label>
+                <input value={vals[v] ?? ""} onChange={(e) => setVals({ ...vals, [v]: e.target.value })}
+                  className="mt-0.5 w-full rounded-md border border-border bg-input/40 px-2 py-1 text-sm outline-none focus:border-primary" />
+              </div>
+            ))}
+          </div>
+          <button onClick={() => copy(true)} className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+            Copy with my values
+          </button>
+        </div>
+      )}
+
+      <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+        {unlocked ? content : "🔒 Content locked — enter PIN to view"}
+      </pre>
+    </div>
+  );
+}
+
+function SubPromptInfoModal({ sub, onClose }: { sub: any | null; onClose: () => void }) {
+  if (!sub) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm px-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+        className="vault-card rounded-2xl w-full max-w-lg max-h-[85vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Sub-prompt info</div>
+            <h3 className="mt-0.5 text-lg font-bold truncate">{sub.title || "Prompt"}</h3>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-5 space-y-4 text-sm">
+          {sub.description ? (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Description</div>
+              <p>{sub.description}</p>
+            </div>
+          ) : null}
+
+          {sub.difficulty ? (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Difficulty</div>
+              <span className="inline-block rounded-md border border-border px-2 py-0.5 text-xs capitalize">{sub.difficulty}</span>
+            </div>
+          ) : null}
+
+          {(sub.ai_models ?? []).length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">AI models</div>
+              <div className="flex flex-wrap gap-1.5">
+                {sub.ai_models.map((m: string) => (
+                  <span key={m} className="text-xs px-2 py-0.5 rounded bg-accent/15 text-accent">{m}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sub.notes ? (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Notes</div>
+              <div className="prose prose-invert max-w-none text-sm prose-a:text-primary">
+                <ReactMarkdown>{sub.notes}</ReactMarkdown>
+              </div>
+            </div>
+          ) : null}
+
+          {!sub.description && !sub.difficulty && !(sub.ai_models ?? []).length && !sub.notes && (
+            <p className="text-muted-foreground">No additional info added for this sub-prompt yet.</p>
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 }

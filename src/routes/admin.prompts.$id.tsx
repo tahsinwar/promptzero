@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -38,6 +38,21 @@ type Form = {
   expires_at: string | null;
 };
 
+type SubPrompt = {
+  id?: string;
+  title: string;
+  content: string;
+  description: string;
+  ai_models: string[];
+  difficulty: string | null;
+  notes: string;
+};
+
+const emptySub = (): SubPrompt => ({
+  title: "", content: "", description: "",
+  ai_models: [], difficulty: null, notes: "",
+});
+
 const empty: Form = {
   title: "", slug: "", description: "", content: "", notes: "",
   category_id: null, ai_models: [], difficulty: "intermediate",
@@ -58,6 +73,7 @@ function EditPrompt() {
   const [videos, setVideos] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
   const [qa, setQa] = useState<any[]>([]);
+  const [subPrompts, setSubPrompts] = useState<SubPrompt[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -80,7 +96,12 @@ function EditPrompt() {
         supabase.from("prompt_links").select("*").eq("prompt_id", id).order("display_order"),
         supabase.from("prompt_qa").select("*").eq("prompt_id", id).order("display_order"),
       ]);
-      return { prompt: p.data, tagIds: t.data?.map((x: any) => x.tag_id) ?? [], videos: v.data ?? [], links: l.data ?? [], qa: q.data ?? [] };
+      const sub = await supabase
+        .from("sub_prompts" as any)
+        .select("*")
+        .eq("prompt_id", id)
+        .order("display_order");
+      return { prompt: p.data, tagIds: t.data?.map((x: any) => x.tag_id) ?? [], videos: v.data ?? [], links: l.data ?? [], qa: q.data ?? [], subPrompts: (sub.data as any[]) ?? [] };
     },
   });
 
@@ -102,6 +123,17 @@ function EditPrompt() {
     setVideos(loaded.videos);
     setLinks(loaded.links);
     setQa(loaded.qa);
+    setSubPrompts(
+      (loaded.subPrompts ?? []).map((s: any) => ({
+        id: s.id,
+        title: s.title ?? "",
+        content: s.content ?? "",
+        description: s.description ?? "",
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty,
+        notes: s.notes ?? "",
+      })),
+    );
   }, [loaded]);
 
   const updateForm = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -133,7 +165,8 @@ function EditPrompt() {
   const save = useMutation({
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Title is required");
-      if (!form.content.trim()) throw new Error("Content is required");
+      if (subPrompts.length === 0) throw new Error("Add at least one sub-prompt");
+      if (subPrompts.some((s) => !s.content.trim())) throw new Error("Every sub-prompt needs content");
       if (form.is_locked && form.pin_input && !/^\d{5}$/.test(form.pin_input)) throw new Error("PIN must be 5 digits");
 
       let pin_hash = form.pin_hash;
@@ -144,7 +177,7 @@ function EditPrompt() {
         title: form.title.trim(),
         slug: (form.slug || slugify(form.title)).trim(),
         description: form.description || null,
-        content: form.content,
+        content: subPrompts[0]?.content ?? "",
         notes: form.notes || null,
         category_id: form.category_id,
         ai_models: form.ai_models,
@@ -176,6 +209,23 @@ function EditPrompt() {
       await supabase.from("prompt_tags").delete().eq("prompt_id", pid);
       if (selectedTags.length) {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: pid, tag_id })));
+      }
+
+      // sync sub_prompts (delete + reinsert preserves order)
+      await supabase.from("sub_prompts" as any).delete().eq("prompt_id", pid);
+      if (subPrompts.length) {
+        const rows = subPrompts.map((s, i) => ({
+          prompt_id: pid,
+          title: s.title || `Prompt ${i + 1}`,
+          content: s.content,
+          description: s.description || null,
+          ai_models: s.ai_models ?? [],
+          difficulty: s.difficulty || null,
+          notes: s.notes || null,
+          display_order: i,
+        }));
+        const { error: subErr } = await supabase.from("sub_prompts" as any).insert(rows as any);
+        if (subErr) throw subErr;
       }
       return pid as string;
     },
@@ -236,6 +286,21 @@ function EditPrompt() {
       if (error) throw error;
       if (selectedTags.length) {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: data.id, tag_id })));
+      }
+      // duplicate sub_prompts too
+      if (subPrompts.length) {
+        await supabase.from("sub_prompts" as any).insert(
+          subPrompts.map((s, i) => ({
+            prompt_id: data.id,
+            title: s.title || `Prompt ${i + 1}`,
+            content: s.content,
+            description: s.description || null,
+            ai_models: s.ai_models ?? [],
+            difficulty: s.difficulty || null,
+            notes: s.notes || null,
+            display_order: i,
+          })) as any,
+        );
       }
       return data.id as string;
     },
@@ -323,10 +388,7 @@ function EditPrompt() {
           <Field label="Description">
             <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)} rows={2} className={inputCls} />
           </Field>
-          <Field label="Content" required hint="Use [variable] for placeholders e.g. [topic]">
-            <textarea value={form.content} onChange={(e) => updateForm("content", e.target.value)} rows={10} className={`${inputCls} font-mono text-sm`} />
-          </Field>
-          <Field label="Notes (markdown)">
+          <Field label="Notes (markdown, page-level)">
             <textarea value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} rows={4} className={`${inputCls} font-mono text-sm`} />
           </Field>
 
@@ -422,6 +484,8 @@ function EditPrompt() {
           )}
         </div>
         )}
+
+        <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} />
 
         <RelatedEditor title="Videos" items={videos} setItems={setVideos} disabled={isNew}
           fields={[{ key: "youtube_url", label: "YouTube URL", required: true }, { key: "title", label: "Title" }]}
@@ -541,6 +605,117 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
           </div>
         ))}
         {items.length === 0 && !disabled && <p className="text-sm text-muted-foreground">None yet. Click Add to create one.</p>}
+      </div>
+    </section>
+  );
+}
+
+const DIFFICULTIES = ["beginner", "intermediate", "advanced"] as const;
+
+function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void }) {
+  const add = () => setItems([...items, emptySub()]);
+  const update = (i: number, patch: Partial<SubPrompt>) => {
+    const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
+  };
+  const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    setItems(next);
+  };
+  const toggleModel = (i: number, m: string) => {
+    const cur = items[i].ai_models ?? [];
+    update(i, { ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
+  };
+
+  return (
+    <section className="mt-6 vault-card rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-bold">Sub-prompts</h2>
+          <p className="text-xs text-muted-foreground">Add one or many prompts to this page. The info button on the public page shows description, AI models, difficulty, and notes.</p>
+        </div>
+        <button onClick={add} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary">
+          <Plus className="h-3.5 w-3.5" /> Add sub-prompt
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((s, i) => (
+          <div key={i} className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</span>
+              <input
+                placeholder="Sub-prompt title"
+                value={s.title}
+                onChange={(e) => update(i, { title: e.target.value })}
+                className="flex-1 rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-semibold"
+              />
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronUp className="h-4 w-4" /></button>
+              <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronDown className="h-4 w-4" /></button>
+              <button onClick={() => remove(i)} className="grid h-8 w-8 place-items-center rounded border border-destructive/40 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
+            </div>
+
+            <textarea
+              placeholder="Prompt content (use [variable] for placeholders)"
+              value={s.content}
+              onChange={(e) => update(i, { content: e.target.value })}
+              rows={6}
+              className="w-full rounded-md border border-border bg-input/40 px-2.5 py-2 text-sm font-mono"
+            />
+
+            <details className="rounded-md border border-border/60 bg-background/30">
+              <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5" /> Info shown on "i" button
+              </summary>
+              <div className="p-3 space-y-3">
+                <textarea
+                  placeholder="Description"
+                  value={s.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm"
+                />
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <select
+                    value={s.difficulty ?? ""}
+                    onChange={(e) => update(i, { difficulty: e.target.value || null })}
+                    className="rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm"
+                  >
+                    <option value="">— Difficulty —</option>
+                    {DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">AI models</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_MODELS.map((m) => {
+                      const active = s.ai_models.includes(m);
+                      return (
+                        <button key={m} type="button" onClick={() => toggleModel(i, m)}
+                          className={`text-xs rounded-full border px-2.5 py-1 ${active ? "bg-primary/15 border-primary/40 text-primary" : "border-border bg-card/40 text-muted-foreground hover:text-foreground"}`}>
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <textarea
+                  placeholder="Notes (markdown supported)"
+                  value={s.notes}
+                  onChange={(e) => update(i, { notes: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-mono"
+                />
+              </div>
+            </details>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">No sub-prompts yet. Click "Add sub-prompt" — every page needs at least one.</p>
+        )}
       </div>
     </section>
   );
