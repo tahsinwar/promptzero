@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive } from "lucide-react";
+import JSZip from "jszip";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 import { ShareModal } from "@/components/share-modal";
@@ -27,6 +28,7 @@ function PromptsList() {
   const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
   const [exporting, setExporting] = useState<string | "bulk" | null>(null);
+  const [exportingZip, setExportingZip] = useState<string | "bulk" | null>(null);
 
   const fetchExportData = async (ids: string[]) => {
     const [pRes, sRes, tRes, lRes, vRes, qRes] = await Promise.all([
@@ -85,6 +87,72 @@ function PromptsList() {
       toast.success(`Exported ${rows.length} prompts`);
     } catch (e: any) { toast.error(e.message ?? "Export failed"); }
     finally { setExporting(null); }
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const safeName = (s: string) => (s || "untitled").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+
+  const addPromptToZip = (zip: JSZip, p: any, folder?: string) => {
+    const base = folder ? zip.folder(folder)! : zip;
+    const header = [
+      `Title: ${p.title ?? ""}`,
+      p.description ? `Description: ${p.description}` : null,
+      p.difficulty ? `Difficulty: ${p.difficulty}` : null,
+      p.ai_models?.length ? `AI Models: ${p.ai_models.join(", ")}` : null,
+      "",
+      "---",
+      "",
+    ].filter(Boolean).join("\n");
+    base.file("main.txt", header + (p.content ?? ""));
+    if (p.notes) base.file("notes.md", p.notes);
+    const subs: any[] = p.sub_prompts ?? [];
+    if (subs.length) {
+      const sf = base.folder("sub-prompts")!;
+      subs.forEach((s, i) => {
+        const head = [
+          `Title: ${s.title ?? ""}`,
+          s.description ? `Description: ${s.description}` : null,
+          s.difficulty ? `Difficulty: ${s.difficulty}` : null,
+          s.ai_models?.length ? `AI Models: ${s.ai_models.join(", ")}` : null,
+          "",
+          "---",
+          "",
+        ].filter(Boolean).join("\n");
+        const body = (s.content ?? "") + (s.notes ? `\n\n---\nNotes:\n${s.notes}` : "");
+        sf.file(`${pad(i + 1)}-${safeName(s.title) || "sub-prompt"}.txt`, head + body);
+      });
+    }
+    base.file("prompt.json", JSON.stringify(p, null, 2));
+  };
+
+  const exportOneZip = async (p: { id: string; title: string; slug: string }) => {
+    try {
+      setExportingZip(p.id);
+      const rows = await fetchExportData([p.id]);
+      if (!rows.length) throw new Error("Not found");
+      const zip = new JSZip();
+      addPromptToZip(zip, rows[0]);
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, `prompt-${p.slug || p.id}.zip`);
+      toast.success("Exported ZIP");
+    } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+    finally { setExportingZip(null); }
+  };
+
+  const exportManyZip = async (ids: string[], filename: string) => {
+    const rows = await fetchExportData(ids);
+    const zip = new JSZip();
+    rows.forEach((p: any) => addPromptToZip(zip, p, `${safeName(p.title) || p.slug || p.id}`));
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(blob, filename);
+    return rows.length;
   };
 
   const { data: cats = [] } = useQuery({
@@ -239,6 +307,23 @@ function PromptsList() {
             {exporting === "bulk" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export all
           </button>
+          <button
+            type="button"
+            disabled={exportingZip === "bulk" || filtered.length === 0}
+            onClick={async () => {
+              try {
+                setExportingZip("bulk");
+                const n = await exportManyZip(filtered.map((p: any) => p.id), `prompts-export-all-${Date.now()}.zip`);
+                toast.success(`Exported ${n} prompts as ZIP`);
+              } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+              finally { setExportingZip(null); }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+            title="Export all filtered prompts as ZIP (txt files)"
+          >
+            {exportingZip === "bulk" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+            Export ZIP
+          </button>
           <Link to="/admin/prompts/$id" params={{ id: "new" }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
             <Plus className="h-4 w-4" /> New prompt
           </Link>
@@ -321,6 +406,7 @@ function PromptsList() {
                       })()}
                       <button onClick={() => setShareFor({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-primary hover:bg-secondary" title="Share"><Share2 className="h-4 w-4" /></button>
                       <button disabled={exporting === p.id} onClick={() => exportOne(p)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Export JSON">{exporting === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</button>
+                      <button disabled={exportingZip === p.id} onClick={() => exportOneZip(p)} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Export ZIP (txt files)">{exportingZip === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}</button>
                       <button disabled={duplicate.isPending} onClick={() => setConfirmDuplicate({ id: p.id, title: p.title })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Duplicate">{duplicate.isPending && duplicate.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}</button>
                       <button disabled={remove.isPending} onClick={() => setConfirmDelete({ id: p.id, title: p.title, status: p.status ?? "draft" })} className="grid h-8 w-8 place-items-center rounded text-muted-foreground hover:text-destructive hover:bg-secondary disabled:opacity-50" title="Delete">{remove.isPending && remove.variables === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</button>
                     </div>
@@ -351,6 +437,18 @@ function PromptsList() {
           <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "published", is_published: true })} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">Publish</button>
           <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "draft", is_published: false })} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60">Unpublish</button>
           <button disabled={exporting === "bulk"} onClick={exportBulk} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60 inline-flex items-center gap-1.5">{exporting === "bulk" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Export</button>
+          <button
+            disabled={exportingZip === "bulk"}
+            onClick={async () => {
+              try {
+                setExportingZip("bulk");
+                const n = await exportManyZip(Array.from(selected), `prompts-export-${Date.now()}.zip`);
+                toast.success(`Exported ${n} prompts as ZIP`);
+              } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+              finally { setExportingZip(null); }
+            }}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60 inline-flex items-center gap-1.5"
+          >{exportingZip === "bulk" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}ZIP</button>
           <button disabled={bulkDelete.isPending} onClick={() => setConfirmBulkDelete(true)} className="rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-60">Delete</button>
           <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
