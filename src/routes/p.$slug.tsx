@@ -56,25 +56,20 @@ function PromptDetail() {
     queryKey: ["prompt-full", slug],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data: p } = await supabase
-        .from("prompts")
-        .select("*, categories(name,color,slug), prompt_tags(tags(id,name,slug)), prompt_videos(*), prompt_links(*), prompt_qa(*), sub_prompts(*)")
-        .eq("slug", slug)
-        .eq("is_published", true)
-        .maybeSingle();
-      if (!p) return null;
-      const [comments, vq, versions, ratings] = await Promise.all([
-        supabase.from("comments").select("*").eq("prompt_id", p.id).eq("is_approved", true).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
-        supabase.from("visitor_questions").select("*").eq("prompt_id", p.id).eq("is_published", true).order("created_at", { ascending: false }),
-        supabase.from("prompt_versions").select("id").eq("prompt_id", p.id),
-        supabase.from("ratings").select("value").eq("prompt_id", p.id),
-      ]);
+      // Single RPC: prompt + nested rels + comments + visitor Qs + version count + ratings
+      const { data: payload, error } = await supabase.rpc(
+        "get_prompt_detail" as any,
+        { p_slug: slug } as any,
+      );
+      if (error) throw error;
+      if (!payload) return null;
+      const d = payload as any;
       return {
-        prompt: p as any,
-        comments: comments.data ?? [],
-        visitorQs: vq.data ?? [],
-        versionCount: (versions.data?.length ?? 0) + 1,
-        ratings: ratings.data ?? [],
+        prompt: d.prompt,
+        comments: d.comments ?? [],
+        visitorQs: d.visitorQs ?? [],
+        versionCount: d.versionCount ?? 1,
+        ratings: d.ratings ?? [],
       };
     },
   });
