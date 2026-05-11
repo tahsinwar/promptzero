@@ -6,6 +6,7 @@ import { useBookmarks } from "@/hooks/use-bookmarks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PinModal } from "./pin-modal";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type PromptListItem = {
   id: string;
@@ -27,6 +28,33 @@ export type PromptListItem = {
 async function copyPrompt(p: PromptListItem) {
   await navigator.clipboard.writeText(p.content);
   await supabase.rpc("increment_copy_count", { p_id: p.id });
+}
+
+// Warm the react-query cache with the detail RPC on hover/focus so the
+// /p/$slug route renders instantly when the user finally clicks.
+function usePrefetchPromptDetail() {
+  const qc = useQueryClient();
+  return (slug: string) =>
+    qc.prefetchQuery({
+      queryKey: ["prompt-full", slug],
+      staleTime: 5 * 60 * 1000,
+      queryFn: async () => {
+        const { data: payload, error } = await supabase.rpc(
+          "get_prompt_detail" as any,
+          { p_slug: slug } as any,
+        );
+        if (error) throw error;
+        if (!payload) return null;
+        const d = payload as any;
+        return {
+          prompt: d.prompt,
+          comments: d.comments ?? [],
+          visitorQs: d.visitorQs ?? [],
+          versionCount: d.versionCount ?? 1,
+          ratings: d.ratings ?? [],
+        };
+      },
+    });
 }
 
 function BookmarkBtn({ slug, onClick }: { slug: string; onClick?: (e: React.MouseEvent) => void }) {
@@ -100,6 +128,8 @@ function CopyBtn({ p, defaultPin, compact }: { p: PromptListItem; defaultPin: st
 export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: string }) {
   const cat = p.categories;
   const catColor = cat?.color ?? undefined;
+  const prefetch = usePrefetchPromptDetail();
+  const warm = () => prefetch(p.slug);
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -110,6 +140,9 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
     <Link
       to="/p/$slug"
       params={{ slug: p.slug }}
+      onMouseEnter={warm}
+      onFocus={warm}
+      onTouchStart={warm}
       className="vault-card rounded-xl p-5 block group relative h-full flex flex-col"
     >
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -156,8 +189,17 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
 export function PromptRow({ p, defaultPin }: { p: PromptListItem; defaultPin: string }) {
   const cat = p.categories;
   const catColor = cat?.color ?? undefined;
+  const prefetch = usePrefetchPromptDetail();
+  const warm = () => prefetch(p.slug);
   return (
-    <Link to="/p/$slug" params={{ slug: p.slug }} className="vault-card rounded-lg px-4 py-3 flex items-center gap-3 group">
+    <Link
+      to="/p/$slug"
+      params={{ slug: p.slug }}
+      onMouseEnter={warm}
+      onFocus={warm}
+      onTouchStart={warm}
+      className="vault-card rounded-lg px-4 py-3 flex items-center gap-3 group"
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <h3 className="font-semibold truncate group-hover:text-primary transition-colors">{p.title}</h3>
