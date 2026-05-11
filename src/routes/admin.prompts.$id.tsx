@@ -878,6 +878,13 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     }
   }, [items, autoFixUndo]);
 
+  // Auto-clear the activity indicator after a short delay so it stays brief.
+  useEffect(() => {
+    if (!lastUndoActivity) return;
+    const t = setTimeout(() => setLastUndoActivity(null), 6000);
+    return () => clearTimeout(t);
+  }, [lastUndoActivity]);
+
   // Preview of what auto-fix will change: returns the proposed order and the
   // list of items whose rendered position would move. Computed without
   // mutating state so we can show a confirmation prompt first.
