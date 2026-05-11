@@ -625,7 +625,7 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
 
 const DIFFICULTIES = ["beginner", "intermediate", "advanced"] as const;
 
-function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void }) {
+function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void; promptId: string | null }) {
   const add = () => setItems([...items, emptySub()]);
   const update = (i: number, patch: Partial<SubPrompt>) => {
     const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
