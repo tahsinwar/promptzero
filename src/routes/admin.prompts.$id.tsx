@@ -674,11 +674,47 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // increasing and matches a created_at tiebreaker sort. Reports gaps,
   // duplicates, missing values, and current vs saved order mismatches.
   const orderReport = useMemo(() => {
-    const saved = items.filter((s) => s.id); // only persisted rows
-    const missingOrder = saved.filter((s) => s.saved_display_order == null).length;
-    const missingCreated = saved.filter((s) => !s.saved_created_at).length;
-    const orders = saved.map((s) => s.saved_display_order ?? -1);
-    const dupes = orders.filter((v, i) => v !== -1 && orders.indexOf(v) !== i).length > 0;
+    // Rendered-index map for the full items array (with unsaved rows interleaved).
+    const renderIdx = new Map<string, number>();
+    items.forEach((s, i) => { if (s.id) renderIdx.set(s.id, i); });
+
+    const saved = items.filter((s) => s.id);
+    const label = (s: SubPrompt, fallbackIdx: number) =>
+      (s.title?.trim() || `Prompt ${fallbackIdx + 1}`);
+
+    // Itemized: missing display_order / created_at
+    const missingOrderItems = saved
+      .filter((s) => s.saved_display_order == null)
+      .map((s) => ({ id: s.id!, idx: renderIdx.get(s.id!) ?? -1, title: label(s, renderIdx.get(s.id!) ?? 0) }));
+    const missingCreatedItems = saved
+      .filter((s) => !s.saved_created_at)
+      .map((s) => ({ id: s.id!, idx: renderIdx.get(s.id!) ?? -1, title: label(s, renderIdx.get(s.id!) ?? 0) }));
+
+    // Itemized: duplicate display_order values
+    const orderCounts = new Map<number, string[]>();
+    saved.forEach((s) => {
+      const v = s.saved_display_order;
+      if (v == null) return;
+      const arr = orderCounts.get(v) ?? [];
+      arr.push(s.id!);
+      orderCounts.set(v, arr);
+    });
+    const duplicateItems: { display_order: number; ids: { id: string; idx: number; title: string }[] }[] = [];
+    orderCounts.forEach((ids, v) => {
+      if (ids.length > 1) {
+        duplicateItems.push({
+          display_order: v,
+          ids: ids.map((id) => {
+            const s = saved.find((x) => x.id === id)!;
+            const i = renderIdx.get(id) ?? -1;
+            return { id, idx: i, title: label(s, i) };
+          }),
+        });
+      }
+    });
+
+    // Itemized: gap/mismatch — saved display_order does not equal position
+    //   in the (display_order, created_at, id) deterministic sort.
     const sortedBySaved = [...saved].sort((a, b) => {
       const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
       if (d !== 0) return d;
@@ -686,16 +722,47 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       if (c !== 0) return c;
       return String(a.id ?? "").localeCompare(String(b.id ?? ""));
     });
-    const renderedIds = saved.map((s) => s.id);
-    const sortedIds = sortedBySaved.map((s) => s.id);
-    const renderMismatch = renderedIds.some((id, i) => id !== sortedIds[i]);
-    let gaps = 0;
-    for (let i = 0; i < sortedBySaved.length; i++) {
-      if ((sortedBySaved[i].saved_display_order ?? -1) !== i) gaps++;
-    }
+    const gapItems = sortedBySaved
+      .map((s, expected) => {
+        const got = s.saved_display_order ?? -1;
+        if (got === expected) return null;
+        const i = renderIdx.get(s.id!) ?? -1;
+        return { id: s.id!, idx: i, title: label(s, i), saved: got, expected };
+      })
+      .filter(Boolean) as { id: string; idx: number; title: string; saved: number; expected: number }[];
+
+    // Itemized: rendered position differs from sorted position
+    const sortedIds = sortedBySaved.map((s) => s.id!);
+    const renderMismatchItems = saved
+      .map((s) => {
+        const rendered = renderIdx.get(s.id!) ?? -1;
+        // map saved-only rendered position to its index among saved rows
+        const renderedAmongSaved = saved.findIndex((x) => x.id === s.id);
+        const expectedAmongSaved = sortedIds.indexOf(s.id!);
+        if (renderedAmongSaved === expectedAmongSaved) return null;
+        return {
+          id: s.id!,
+          idx: rendered,
+          title: label(s, rendered),
+          rendered: renderedAmongSaved,
+          expected: expectedAmongSaved,
+        };
+      })
+      .filter(Boolean) as { id: string; idx: number; title: string; rendered: number; expected: number }[];
+
+    const dupes = duplicateItems.length > 0;
+    const gaps = gapItems.length;
+    const renderMismatch = renderMismatchItems.length > 0;
+    const missingOrder = missingOrderItems.length;
+    const missingCreated = missingCreatedItems.length;
     const hasIssue = dupes || renderMismatch || gaps > 0 || missingOrder > 0;
     const unsaved = items.length - saved.length;
-    return { hasIssue, dupes, renderMismatch, gaps, missingOrder, missingCreated, unsaved, total: items.length };
+
+    return {
+      hasIssue, dupes, renderMismatch, gaps, missingOrder, missingCreated,
+      unsaved, total: items.length,
+      duplicateItems, gapItems, renderMismatchItems, missingOrderItems, missingCreatedItems,
+    };
   }, [items]);
 
   // Server-side mirror of the same check (via SQL function check_sub_prompt_order).
@@ -714,6 +781,20 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   const serverClientAgree = !serverReport
     ? null
     : (serverReport.consistent === !orderReport.hasIssue);
+
+  // Field-level diff between client computed values and server report.
+  const fieldDiff = useMemo(() => {
+    if (!serverReport) return [] as { field: string; client: number | boolean; server: number | boolean }[];
+    const rows: { field: string; client: number | boolean; server: number | boolean }[] = [
+      { field: "total (persisted)", client: items.filter((s) => s.id).length, server: serverReport.total },
+      { field: "gaps_or_mismatches", client: orderReport.gaps, server: serverReport.gaps_or_mismatches },
+      { field: "duplicates", client: orderReport.duplicateItems.length, server: serverReport.duplicates },
+      { field: "missing_display_order", client: orderReport.missingOrder, server: serverReport.missing_display_order },
+      { field: "missing_created_at", client: orderReport.missingCreated, server: serverReport.missing_created_at },
+      { field: "consistent", client: !orderReport.hasIssue, server: serverReport.consistent },
+    ];
+    return rows.filter((r) => r.client !== r.server);
+  }, [serverReport, orderReport, items]);
 
   // Re-run server check when the persisted DB snapshot changes (after save reload).
   const dbSig = useMemo(
