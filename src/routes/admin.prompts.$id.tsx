@@ -1822,7 +1822,17 @@ function NotesEditor({ value, onChange }: { value: string; onChange: (v: string)
         {showPreview && (
           <div className="px-3 py-2 text-sm overflow-auto max-h-[400px] prose prose-invert prose-sm max-w-none prose-headings:font-semibold prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5">
             {value.trim() ? (
-              <ReactMarkdown>{value}</ReactMarkdown>
+              <ReactMarkdown
+                skipHtml
+                disallowedElements={["script", "iframe", "object", "embed", "form", "input", "style", "link", "meta"]}
+                unwrapDisallowed
+                urlTransform={(url) => {
+                  const safe = /^(https?:|mailto:|tel:|#|\/)/i;
+                  return safe.test(url) ? url : "";
+                }}
+              >
+                {value}
+              </ReactMarkdown>
             ) : (
               <div className="text-xs text-muted-foreground space-y-2">
                 <p className="m-0 italic">Notes is empty — try this Markdown:</p>
