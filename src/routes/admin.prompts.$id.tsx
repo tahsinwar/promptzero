@@ -1293,6 +1293,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                       const disabledReason = interactionBusy
                         ? (dragIdx !== null ? "Finish the drag before undoing" : "Finish typing before undoing")
                         : null;
+                      const msLeft = Math.max(0, autoFixUndo.expiresAt - nowTick);
+                      const secLeft = Math.ceil(msLeft / 1000);
+                      const pct = Math.max(0, Math.min(100, (msLeft / UNDO_TIMEOUT_MS) * 100));
+                      // Reverse the original moves to describe what Undo will do:
+                      // each original from→to becomes to→from when restoring.
+                      const undoMoves = [...autoFixUndo.moves]
+                        .map((m) => ({ ...m, from: m.to, to: m.from }))
+                        .reverse();
                       return (
                         <div className="space-y-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-foreground">
                           <div className="flex items-center justify-between gap-2">
@@ -1308,6 +1316,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                             <div className="flex shrink-0 gap-1.5">
                               <button
                                 type="button"
+                                onClick={() => setUndoPreviewOpen((v) => !v)}
+                                title={undoPreviewOpen ? "Hide preview" : "Preview before/after positions"}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-secondary"
+                              >
+                                {undoPreviewOpen ? "Hide preview" : "Preview changes"}
+                              </button>
+                              <button
+                                type="button"
                                 disabled={undoAutoFix.isPending || interactionBusy}
                                 onClick={() => undoAutoFix.mutate()}
                                 title={disabledReason ?? "Restore previous order"}
@@ -1321,6 +1337,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                                 disabled={undoAutoFix.isPending}
                                 onClick={() => {
                                   setAutoFixUndo(null);
+                                  setUndoPreviewOpen(false);
                                   setLastUndoActivity({ kind: "dismissed", at: Date.now() });
                                 }}
                                 title="Dismiss undo option"
@@ -1330,8 +1347,33 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                               </button>
                             </div>
                           </div>
+                          {undoPreviewOpen && undoMoves.length > 0 && (
+                            <ul className="ml-5 max-h-32 overflow-auto rounded border border-emerald-500/30 bg-background/40 px-2 py-1 text-[10px] text-muted-foreground">
+                              {undoMoves.slice(0, 8).map((m, i) => (
+                                <li key={`u-${m.from}-${m.to}-${i}`} className="font-mono">
+                                  {m.isSaved ? "·" : "✱"} "{m.title}" — #{m.from + 1} → #{m.to + 1}
+                                </li>
+                              ))}
+                              {undoMoves.length > 8 && (
+                                <li className="italic">… and {undoMoves.length - 8} more</li>
+                              )}
+                            </ul>
+                          )}
+                          <div className="ml-5 mr-1">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1 flex-1 overflow-hidden rounded bg-emerald-500/15">
+                                <div
+                                  className="h-full bg-emerald-500/70 transition-[width] duration-200"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                                {secLeft}s
+                              </span>
+                            </div>
+                          </div>
                           <div className="pl-5 text-[10px] text-muted-foreground">
-                            ⚠ This undo option expires the moment you start any manual drag, move, or text edit — confirm before discarding it.
+                            ⚠ This undo option expires after {Math.round(UNDO_TIMEOUT_MS / 1000)}s or the moment you start any manual drag, move, or text edit.
                             {disabledReason && (
                               <span className="ml-1 font-semibold text-amber-500">{disabledReason}.</span>
                             )}
@@ -1339,6 +1381,45 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                         </div>
                       );
                     })()}
+                    {autoFixRedo && !autoFixUndo && !autoFixPending && (
+                      <div className="space-y-1 rounded border border-sky-500/40 bg-sky-500/10 px-2 py-1.5 text-[11px] text-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-start gap-1.5">
+                            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-sky-500" />
+                            <div>
+                              Undid Auto-fix for <span className="font-semibold">{autoFixRedo.movedCount}</span> item{autoFixRedo.movedCount === 1 ? "" : "s"}.{" "}
+                              {autoFixRedo.persisted
+                                ? <>Redo will call <code className="font-mono">sync_sub_prompts</code> again with the auto-fixed order.</>
+                                : <>Redo will re-apply the local reorder.</>}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-1.5">
+                            <button
+                              type="button"
+                              disabled={redoAutoFix.isPending || isTyping || dragIdx !== null}
+                              onClick={() => redoAutoFix.mutate()}
+                              title="Re-apply the auto-fix you just undid"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/50 bg-sky-500/15 px-2 py-1 text-[11px] font-semibold text-sky-500 hover:bg-sky-500/25 disabled:opacity-50"
+                            >
+                              {redoAutoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                              Redo auto-fix
+                            </button>
+                            <button
+                              type="button"
+                              disabled={redoAutoFix.isPending}
+                              onClick={() => setAutoFixRedo(null)}
+                              title="Dismiss redo option"
+                              className="inline-flex items-center rounded-md border border-border px-1.5 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="pl-5 text-[10px] text-muted-foreground">
+                          Redo is cleared as soon as you make any manual edit or drag.
+                        </div>
+                      </div>
+                    )}
                     {!autoFixUndo && lastUndoActivity && (
                       <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1 text-[10px] text-muted-foreground">
                         <span>
@@ -1347,6 +1428,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                             {lastUndoActivity.kind === "applied" && "applied"}
                             {lastUndoActivity.kind === "dismissed" && "dismissed"}
                             {lastUndoActivity.kind === "expired" && "expired (manual edit detected)"}
+                            {lastUndoActivity.kind === "redone" && "redone"}
                           </span>
                           {" "}· {new Date(lastUndoActivity.at).toLocaleTimeString()}
                         </span>
