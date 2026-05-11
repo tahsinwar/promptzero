@@ -498,7 +498,7 @@ function EditPrompt() {
         </div>
         )}
 
-        <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} />
+       <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} promptId={isNew ? null : id} />
 
         <RelatedEditor title="Videos" items={videos} setItems={setVideos} disabled={isNew}
           fields={[{ key: "youtube_url", label: "YouTube URL", required: true }, { key: "title", label: "Title" }]}
