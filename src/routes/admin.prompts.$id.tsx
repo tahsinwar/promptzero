@@ -634,9 +634,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   const [isTyping, setIsTyping] = useState(false);
   // Activity log for Auto-fix undo lifecycle. Surfaced briefly in the UI.
   const [lastUndoActivity, setLastUndoActivity] = useState<
-    | { kind: "applied" | "dismissed" | "expired"; at: number }
+    | { kind: "applied" | "dismissed" | "expired" | "redone"; at: number }
     | null
   >(null);
+  // Toggle for the inline "before → after" diff preview shown in the Undo banner.
+  const [undoPreviewOpen, setUndoPreviewOpen] = useState(false);
+  // Ticking clock used to drive the countdown progress bar in the Undo banner.
+  // Only runs while an Undo snapshot is live (see effect below).
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Guard a structural mutation (add/remove/move/drag-reorder/toggle): if an
   // Auto-fix Undo snapshot is currently live, ask the admin to confirm before
@@ -851,6 +856,9 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
   const [autoFixPending, setAutoFixPending] = useState(false);
+  // How long the Undo snapshot stays live before auto-expiring. Reflected in
+  // the banner's countdown progress bar.
+  const UNDO_TIMEOUT_MS = 30000;
   // Snapshot captured at the moment Auto-fix runs, so the admin can undo the
   // reorder if the result wasn't what they expected. Cleared on any subsequent
   // manual edit, drag, or successful undo.
@@ -860,6 +868,21 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         postFixItems: SubPrompt[];
         persisted: boolean;
         movedCount: number;
+        moves: { title: string; from: number; to: number; isSaved: boolean }[];
+        expiresAt: number;
+      }
+    | null
+  >(null);
+  // Redo snapshot: captured right after a successful Undo so the admin can
+  // re-apply the Auto-fix in one click. Cleared by any subsequent manual edit
+  // or when a fresh Auto-fix runs.
+  const [autoFixRedo, setAutoFixRedo] = useState<
+    | {
+        items: SubPrompt[]; // the post-fix order to restore
+        postUndoItems: SubPrompt[]; // current items ref after undo applied
+        persisted: boolean;
+        movedCount: number;
+        moves: { title: string; from: number; to: number; isSaved: boolean }[];
       }
     | null
   >(null);
@@ -874,9 +897,37 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     if (!autoFixUndo) return;
     if (items !== autoFixUndo.postFixItems) {
       setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
       setLastUndoActivity({ kind: "expired", at: Date.now() });
     }
   }, [items, autoFixUndo]);
+
+  // Same idea for the Redo snapshot: if items diverges from the post-undo
+  // reference, the redo target is stale and silently expires.
+  useEffect(() => {
+    if (!autoFixRedo) return;
+    if (items !== autoFixRedo.postUndoItems) {
+      setAutoFixRedo(null);
+    }
+  }, [items, autoFixRedo]);
+
+  // Tick the clock while an Undo snapshot is live so the countdown progress
+  // bar can re-render. Stops as soon as the snapshot clears.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    const id = setInterval(() => setNowTick(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [autoFixUndo]);
+
+  // Auto-expire the Undo snapshot when its deadline passes.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    if (nowTick >= autoFixUndo.expiresAt) {
+      setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
+      setLastUndoActivity({ kind: "expired", at: Date.now() });
+    }
+  }, [nowTick, autoFixUndo]);
 
   // Auto-clear the activity indicator after a short delay so it stays brief.
   useEffect(() => {
@@ -933,10 +984,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       const prev = items;
       const next = autoFixPreview.proposed;
       const movedCount = autoFixPreview.moves.length;
+      const moves = autoFixPreview.moves;
       setItems(next);
 
       if (!promptId) {
-        return { reordered: next.length, persisted: false, prev, next, movedCount };
+        return { reordered: next.length, persisted: false, prev, next, movedCount, moves };
       }
 
       // Same payload shape used by the parent Save mutation.
@@ -954,7 +1006,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true, prev, next, movedCount };
+      return { reordered: next.length, persisted: true, prev, next, movedCount, moves };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
@@ -963,7 +1015,12 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         postFixItems: res.next,
         persisted: res.persisted,
         movedCount: res.movedCount,
+        moves: res.moves,
+        expiresAt: Date.now() + UNDO_TIMEOUT_MS,
       });
+      // A fresh Auto-fix invalidates any prior Redo arm.
+      setAutoFixRedo(null);
+      setUndoPreviewOpen(false);
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -983,11 +1040,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // so the DB display_order reverts. created_at stays untouched in both cases.
   const undoAutoFix = useMutation({
     mutationFn: async () => {
-      if (!autoFixUndo) return { persisted: false };
+      if (!autoFixUndo) return { persisted: false, snap: null as null | typeof autoFixUndo };
       const prev = autoFixUndo.items;
       setItems(prev);
 
-      if (!autoFixUndo.persisted || !promptId) return { persisted: false };
+      if (!autoFixUndo.persisted || !promptId) return { persisted: false, snap: autoFixUndo };
 
       const itemsPayload = prev.map((s, i) => ({
         id: s.id ?? null,
@@ -1003,10 +1060,23 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { persisted: true };
+      return { persisted: true, snap: autoFixUndo };
     },
     onSuccess: (res) => {
+      // Arm Redo so the admin can re-apply the Auto-fix in one click before
+      // they touch anything else. postUndoItems = the items ref we just set
+      // via setItems(prev), which is the snapshot's `items` array.
+      if (res.snap) {
+        setAutoFixRedo({
+          items: res.snap.postFixItems,
+          postUndoItems: res.snap.items,
+          persisted: res.snap.persisted,
+          movedCount: res.snap.movedCount,
+          moves: res.snap.moves,
+        });
+      }
       setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
       setLastUndoActivity({ kind: "applied", at: Date.now() });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
@@ -1017,6 +1087,54 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       }
     },
     onError: (e: any) => toast.error(e.message ?? "Undo failed"),
+  });
+
+  // Redo: re-apply the Auto-fix that was just undone. Same payload shape as
+  // Auto-fix; re-arms Undo on success.
+  const redoAutoFix = useMutation({
+    mutationFn: async () => {
+      if (!autoFixRedo) return { persisted: false, snap: null as null | typeof autoFixRedo };
+      const next = autoFixRedo.items;
+      setItems(next);
+      if (!autoFixRedo.persisted || !promptId) return { persisted: false, snap: autoFixRedo };
+      const itemsPayload = next.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: promptId,
+        items: itemsPayload as any,
+      });
+      if (error) throw error;
+      return { persisted: true, snap: autoFixRedo };
+    },
+    onSuccess: (res) => {
+      if (res.snap) {
+        setAutoFixUndo({
+          items: res.snap.postUndoItems,
+          postFixItems: res.snap.items,
+          persisted: res.snap.persisted,
+          movedCount: res.snap.movedCount,
+          moves: res.snap.moves,
+          expiresAt: Date.now() + UNDO_TIMEOUT_MS,
+        });
+      }
+      setAutoFixRedo(null);
+      setLastUndoActivity({ kind: "redone", at: Date.now() });
+      if (res.persisted) {
+        qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
+        refetchServerReport();
+        toast.success("Re-applied auto-fix");
+      } else {
+        toast.success("Re-applied locally");
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? "Redo failed"),
   });
 
 
@@ -1175,6 +1293,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                       const disabledReason = interactionBusy
                         ? (dragIdx !== null ? "Finish the drag before undoing" : "Finish typing before undoing")
                         : null;
+                      const msLeft = Math.max(0, autoFixUndo.expiresAt - nowTick);
+                      const secLeft = Math.ceil(msLeft / 1000);
+                      const pct = Math.max(0, Math.min(100, (msLeft / UNDO_TIMEOUT_MS) * 100));
+                      // Reverse the original moves to describe what Undo will do:
+                      // each original from→to becomes to→from when restoring.
+                      const undoMoves = [...autoFixUndo.moves]
+                        .map((m) => ({ ...m, from: m.to, to: m.from }))
+                        .reverse();
                       return (
                         <div className="space-y-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-foreground">
                           <div className="flex items-center justify-between gap-2">
@@ -1190,6 +1316,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                             <div className="flex shrink-0 gap-1.5">
                               <button
                                 type="button"
+                                onClick={() => setUndoPreviewOpen((v) => !v)}
+                                title={undoPreviewOpen ? "Hide preview" : "Preview before/after positions"}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-secondary"
+                              >
+                                {undoPreviewOpen ? "Hide preview" : "Preview changes"}
+                              </button>
+                              <button
+                                type="button"
                                 disabled={undoAutoFix.isPending || interactionBusy}
                                 onClick={() => undoAutoFix.mutate()}
                                 title={disabledReason ?? "Restore previous order"}
@@ -1203,6 +1337,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                                 disabled={undoAutoFix.isPending}
                                 onClick={() => {
                                   setAutoFixUndo(null);
+                                  setUndoPreviewOpen(false);
                                   setLastUndoActivity({ kind: "dismissed", at: Date.now() });
                                 }}
                                 title="Dismiss undo option"
@@ -1212,8 +1347,33 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                               </button>
                             </div>
                           </div>
+                          {undoPreviewOpen && undoMoves.length > 0 && (
+                            <ul className="ml-5 max-h-32 overflow-auto rounded border border-emerald-500/30 bg-background/40 px-2 py-1 text-[10px] text-muted-foreground">
+                              {undoMoves.slice(0, 8).map((m, i) => (
+                                <li key={`u-${m.from}-${m.to}-${i}`} className="font-mono">
+                                  {m.isSaved ? "·" : "✱"} "{m.title}" — #{m.from + 1} → #{m.to + 1}
+                                </li>
+                              ))}
+                              {undoMoves.length > 8 && (
+                                <li className="italic">… and {undoMoves.length - 8} more</li>
+                              )}
+                            </ul>
+                          )}
+                          <div className="ml-5 mr-1">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1 flex-1 overflow-hidden rounded bg-emerald-500/15">
+                                <div
+                                  className="h-full bg-emerald-500/70 transition-[width] duration-200"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                                {secLeft}s
+                              </span>
+                            </div>
+                          </div>
                           <div className="pl-5 text-[10px] text-muted-foreground">
-                            ⚠ This undo option expires the moment you start any manual drag, move, or text edit — confirm before discarding it.
+                            ⚠ This undo option expires after {Math.round(UNDO_TIMEOUT_MS / 1000)}s or the moment you start any manual drag, move, or text edit.
                             {disabledReason && (
                               <span className="ml-1 font-semibold text-amber-500">{disabledReason}.</span>
                             )}
@@ -1221,6 +1381,45 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                         </div>
                       );
                     })()}
+                    {autoFixRedo && !autoFixUndo && !autoFixPending && (
+                      <div className="space-y-1 rounded border border-sky-500/40 bg-sky-500/10 px-2 py-1.5 text-[11px] text-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-start gap-1.5">
+                            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-sky-500" />
+                            <div>
+                              Undid Auto-fix for <span className="font-semibold">{autoFixRedo.movedCount}</span> item{autoFixRedo.movedCount === 1 ? "" : "s"}.{" "}
+                              {autoFixRedo.persisted
+                                ? <>Redo will call <code className="font-mono">sync_sub_prompts</code> again with the auto-fixed order.</>
+                                : <>Redo will re-apply the local reorder.</>}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-1.5">
+                            <button
+                              type="button"
+                              disabled={redoAutoFix.isPending || isTyping || dragIdx !== null}
+                              onClick={() => redoAutoFix.mutate()}
+                              title="Re-apply the auto-fix you just undid"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/50 bg-sky-500/15 px-2 py-1 text-[11px] font-semibold text-sky-500 hover:bg-sky-500/25 disabled:opacity-50"
+                            >
+                              {redoAutoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                              Redo auto-fix
+                            </button>
+                            <button
+                              type="button"
+                              disabled={redoAutoFix.isPending}
+                              onClick={() => setAutoFixRedo(null)}
+                              title="Dismiss redo option"
+                              className="inline-flex items-center rounded-md border border-border px-1.5 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="pl-5 text-[10px] text-muted-foreground">
+                          Redo is cleared as soon as you make any manual edit or drag.
+                        </div>
+                      </div>
+                    )}
                     {!autoFixUndo && lastUndoActivity && (
                       <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1 text-[10px] text-muted-foreground">
                         <span>
@@ -1228,7 +1427,8 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                           <span className="font-semibold text-foreground">
                             {lastUndoActivity.kind === "applied" && "applied"}
                             {lastUndoActivity.kind === "dismissed" && "dismissed"}
-                            {lastUndoActivity.kind === "expired" && "expired (manual edit detected)"}
+                            {lastUndoActivity.kind === "expired" && "expired"}
+                            {lastUndoActivity.kind === "redone" && "redone"}
                           </span>
                           {" "}· {new Date(lastUndoActivity.at).toLocaleTimeString()}
                         </span>
