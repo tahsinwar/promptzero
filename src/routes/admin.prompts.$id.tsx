@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -38,6 +38,21 @@ type Form = {
   expires_at: string | null;
 };
 
+type SubPrompt = {
+  id?: string;
+  title: string;
+  content: string;
+  description: string;
+  ai_models: string[];
+  difficulty: string | null;
+  notes: string;
+};
+
+const emptySub = (): SubPrompt => ({
+  title: "", content: "", description: "",
+  ai_models: [], difficulty: null, notes: "",
+});
+
 const empty: Form = {
   title: "", slug: "", description: "", content: "", notes: "",
   category_id: null, ai_models: [], difficulty: "intermediate",
@@ -58,6 +73,7 @@ function EditPrompt() {
   const [videos, setVideos] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
   const [qa, setQa] = useState<any[]>([]);
+  const [subPrompts, setSubPrompts] = useState<SubPrompt[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -80,7 +96,12 @@ function EditPrompt() {
         supabase.from("prompt_links").select("*").eq("prompt_id", id).order("display_order"),
         supabase.from("prompt_qa").select("*").eq("prompt_id", id).order("display_order"),
       ]);
-      return { prompt: p.data, tagIds: t.data?.map((x: any) => x.tag_id) ?? [], videos: v.data ?? [], links: l.data ?? [], qa: q.data ?? [] };
+      const sub = await supabase
+        .from("sub_prompts" as any)
+        .select("*")
+        .eq("prompt_id", id)
+        .order("display_order");
+      return { prompt: p.data, tagIds: t.data?.map((x: any) => x.tag_id) ?? [], videos: v.data ?? [], links: l.data ?? [], qa: q.data ?? [], subPrompts: (sub.data as any[]) ?? [] };
     },
   });
 
@@ -102,6 +123,17 @@ function EditPrompt() {
     setVideos(loaded.videos);
     setLinks(loaded.links);
     setQa(loaded.qa);
+    setSubPrompts(
+      (loaded.subPrompts ?? []).map((s: any) => ({
+        id: s.id,
+        title: s.title ?? "",
+        content: s.content ?? "",
+        description: s.description ?? "",
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty,
+        notes: s.notes ?? "",
+      })),
+    );
   }, [loaded]);
 
   const updateForm = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -133,7 +165,8 @@ function EditPrompt() {
   const save = useMutation({
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Title is required");
-      if (!form.content.trim()) throw new Error("Content is required");
+      if (subPrompts.length === 0) throw new Error("Add at least one sub-prompt");
+      if (subPrompts.some((s) => !s.content.trim())) throw new Error("Every sub-prompt needs content");
       if (form.is_locked && form.pin_input && !/^\d{5}$/.test(form.pin_input)) throw new Error("PIN must be 5 digits");
 
       let pin_hash = form.pin_hash;
@@ -144,7 +177,7 @@ function EditPrompt() {
         title: form.title.trim(),
         slug: (form.slug || slugify(form.title)).trim(),
         description: form.description || null,
-        content: form.content,
+        content: subPrompts[0]?.content ?? "",
         notes: form.notes || null,
         category_id: form.category_id,
         ai_models: form.ai_models,
@@ -176,6 +209,23 @@ function EditPrompt() {
       await supabase.from("prompt_tags").delete().eq("prompt_id", pid);
       if (selectedTags.length) {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: pid, tag_id })));
+      }
+
+      // sync sub_prompts (delete + reinsert preserves order)
+      await supabase.from("sub_prompts" as any).delete().eq("prompt_id", pid);
+      if (subPrompts.length) {
+        const rows = subPrompts.map((s, i) => ({
+          prompt_id: pid,
+          title: s.title || `Prompt ${i + 1}`,
+          content: s.content,
+          description: s.description || null,
+          ai_models: s.ai_models ?? [],
+          difficulty: s.difficulty || null,
+          notes: s.notes || null,
+          display_order: i,
+        }));
+        const { error: subErr } = await supabase.from("sub_prompts" as any).insert(rows as any);
+        if (subErr) throw subErr;
       }
       return pid as string;
     },
@@ -236,6 +286,21 @@ function EditPrompt() {
       if (error) throw error;
       if (selectedTags.length) {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: data.id, tag_id })));
+      }
+      // duplicate sub_prompts too
+      if (subPrompts.length) {
+        await supabase.from("sub_prompts" as any).insert(
+          subPrompts.map((s, i) => ({
+            prompt_id: data.id,
+            title: s.title || `Prompt ${i + 1}`,
+            content: s.content,
+            description: s.description || null,
+            ai_models: s.ai_models ?? [],
+            difficulty: s.difficulty || null,
+            notes: s.notes || null,
+            display_order: i,
+          })) as any,
+        );
       }
       return data.id as string;
     },
