@@ -815,11 +815,25 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   const [autoFixUndo, setAutoFixUndo] = useState<
     | {
         items: SubPrompt[];
+        postFixItems: SubPrompt[];
         persisted: boolean;
         movedCount: number;
       }
     | null
   >(null);
+
+  // Auto-dismiss the Undo banner the moment the user does anything that mutates
+  // items outside of Auto-fix / Undo themselves (manual edit, drag-reorder,
+  // add, remove). We detect that by comparing the current items reference to
+  // the snapshot captured after the last Auto-fix ran. setItems always
+  // produces a new array reference for real mutations, so a divergence here
+  // means the snapshot is stale and Undo would restore the wrong state.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    if (items !== autoFixUndo.postFixItems) {
+      setAutoFixUndo(null);
+    }
+  }, [items, autoFixUndo]);
 
   // Preview of what auto-fix will change: returns the proposed order and the
   // list of items whose rendered position would move. Computed without
