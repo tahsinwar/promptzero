@@ -307,6 +307,23 @@ function PromptsList() {
             {exporting === "bulk" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export all
           </button>
+          <button
+            type="button"
+            disabled={exportingZip === "bulk" || filtered.length === 0}
+            onClick={async () => {
+              try {
+                setExportingZip("bulk");
+                const n = await exportManyZip(filtered.map((p: any) => p.id), `prompts-export-all-${Date.now()}.zip`);
+                toast.success(`Exported ${n} prompts as ZIP`);
+              } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+              finally { setExportingZip(null); }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+            title="Export all filtered prompts as ZIP (txt files)"
+          >
+            {exportingZip === "bulk" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+            Export ZIP
+          </button>
           <Link to="/admin/prompts/$id" params={{ id: "new" }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
             <Plus className="h-4 w-4" /> New prompt
           </Link>
