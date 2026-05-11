@@ -1285,7 +1285,17 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         </div>
       )}
 
-      <div className="space-y-3">
+      <div
+        className="space-y-3"
+        onFocus={(e) => {
+          const t = e.target as HTMLElement;
+          if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") setIsTyping(true);
+        }}
+        onBlur={(e) => {
+          const t = e.target as HTMLElement;
+          if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") setIsTyping(false);
+        }}
+      >
         {items.map((s, i) => {
           const titleMissing = !s.title.trim();
           const contentMissing = !s.content.trim();
