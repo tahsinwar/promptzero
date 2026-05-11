@@ -1000,6 +1000,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     },
     onSuccess: (res) => {
       setAutoFixUndo(null);
+      setLastUndoActivity({ kind: "applied", at: Date.now() });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
