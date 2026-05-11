@@ -140,10 +140,15 @@ function PromptsList() {
     base.file("prompt.json", JSON.stringify(p, null, 2));
   };
 
+  const EXPORT_VERSION = "1.0";
+  const EXPORT_FORMAT = "prompt-vault-zip";
+
   const singlePromptReadme = (p: any) => {
     const subCount = (p.sub_prompts ?? []).length;
     return [
       `# Prompt Export — ${p.title ?? "Untitled"}`,
+      `Export format: ${EXPORT_FORMAT}`,
+      `Export version: ${EXPORT_VERSION}`,
       `Exported: ${new Date().toISOString()}`,
       p.slug ? `Slug: ${p.slug}` : null,
       ``,
@@ -172,6 +177,8 @@ function PromptsList() {
   const bulkReadme = (rows: any[]) => {
     return [
       `# Prompt Vault — Bulk Export`,
+      `Export format: ${EXPORT_FORMAT}`,
+      `Export version: ${EXPORT_VERSION}`,
       `Exported: ${new Date().toISOString()}`,
       `Total prompts: ${rows.length}`,
       ``,
