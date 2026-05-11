@@ -809,6 +809,17 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
   const [autoFixPending, setAutoFixPending] = useState(false);
+  // Snapshot captured at the moment Auto-fix runs, so the admin can undo the
+  // reorder if the result wasn't what they expected. Cleared on any subsequent
+  // manual edit, drag, or successful undo.
+  const [autoFixUndo, setAutoFixUndo] = useState<
+    | {
+        items: SubPrompt[];
+        persisted: boolean;
+        movedCount: number;
+      }
+    | null
+  >(null);
 
   // Preview of what auto-fix will change: returns the proposed order and the
   // list of items whose rendered position would move. Computed without
@@ -855,10 +866,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
 
   const autoFix = useMutation({
     mutationFn: async () => {
+      const prev = items;
       const next = autoFixPreview.proposed;
+      const movedCount = autoFixPreview.moves.length;
       setItems(next);
 
-      if (!promptId) return { reordered: next.length, persisted: false };
+      if (!promptId) {
+        return { reordered: next.length, persisted: false, prev, movedCount };
+      }
 
       // Same payload shape used by the parent Save mutation.
       const itemsPayload = next.map((s, i) => ({
@@ -875,10 +890,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true };
+      return { reordered: next.length, persisted: true, prev, movedCount };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
+      setAutoFixUndo({ items: res.prev, persisted: res.persisted, movedCount: res.movedCount });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -892,6 +908,62 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       toast.error(e.message ?? "Auto-fix failed");
     },
   });
+
+  // Undo: restore the items array captured before the last Auto-fix. If the
+  // reorder was persisted, also push the previous order through sync_sub_prompts
+  // so the DB display_order reverts. created_at stays untouched in both cases.
+  const undoAutoFix = useMutation({
+    mutationFn: async () => {
+      if (!autoFixUndo) return { persisted: false };
+      const prev = autoFixUndo.items;
+      setItems(prev);
+
+      if (!autoFixUndo.persisted || !promptId) return { persisted: false };
+
+      const itemsPayload = prev.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: promptId,
+        items: itemsPayload as any,
+      });
+      if (error) throw error;
+      return { persisted: true };
+    },
+    onSuccess: (res) => {
+      setAutoFixUndo(null);
+      if (res.persisted) {
+        qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
+        refetchServerReport();
+        toast.success("Reverted to previous order");
+      } else {
+        toast.success("Reverted locally");
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? "Undo failed"),
+  });
+
+  // Any user-driven change to items invalidates the pending undo snapshot —
+  // the captured "previous" array no longer matches the editor's reality.
+  useEffect(() => {
+    if (!autoFixUndo) return;
+    // If items reference equals the snapshot's items, nothing changed.
+    // Otherwise, drop the undo if items diverges from BOTH the snapshot
+    // (pre-fix) and the post-fix proposed order.
+    const matchesProposed = items === autoFixPreview.proposed;
+    const matchesSnapshot = items === autoFixUndo.items;
+    if (!matchesProposed && !matchesSnapshot) {
+      setAutoFixUndo(null);
+    }
+    // intentionally only react to items identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
