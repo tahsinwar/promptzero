@@ -48,6 +48,7 @@ type SubPrompt = {
   ai_models: string[];
   difficulty: string | null;
   notes: string;
+  fill_in_enabled: boolean;
   // Snapshot of DB ordering fields (for admin verification only — not edited here)
   saved_display_order?: number | null;
   saved_created_at?: string | null;
@@ -55,7 +56,7 @@ type SubPrompt = {
 
 const emptySub = (): SubPrompt => ({
   title: "", content: "", description: "",
-  ai_models: [], difficulty: null, notes: "",
+  ai_models: [], difficulty: null, notes: "", fill_in_enabled: true,
 });
 
 const empty: Form = {
@@ -138,6 +139,7 @@ function EditPrompt() {
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty,
         notes: s.notes ?? "",
+        fill_in_enabled: s.fill_in_enabled ?? true,
         saved_display_order: typeof s.display_order === "number" ? s.display_order : null,
         saved_created_at: s.created_at ?? null,
       })),
