@@ -166,7 +166,10 @@ function EditPrompt() {
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Title is required");
       if (subPrompts.length === 0) throw new Error("Add at least one sub-prompt");
-      if (subPrompts.some((s) => !s.content.trim())) throw new Error("Every sub-prompt needs content");
+      const badContent = subPrompts.findIndex((s) => !s.content.trim());
+      if (badContent !== -1) throw new Error(`Sub-prompt #${badContent + 1}: content is required`);
+      const badTitle = subPrompts.findIndex((s) => !s.title.trim());
+      if (badTitle !== -1) throw new Error(`Sub-prompt #${badTitle + 1}: title is required`);
       if (form.is_locked && form.pin_input && !/^\d{5}$/.test(form.pin_input)) throw new Error("PIN must be 5 digits");
 
       let pin_hash = form.pin_hash;
