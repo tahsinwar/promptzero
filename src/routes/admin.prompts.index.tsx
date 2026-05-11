@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive } from "lucide-react";
 import JSZip from "jszip";
@@ -17,6 +17,7 @@ type Status = typeof STATUSES[number];
 function PromptsList() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
@@ -29,6 +30,18 @@ function PromptsList() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
   const [exporting, setExporting] = useState<string | "bulk" | null>(null);
   const [exportingZip, setExportingZip] = useState<string | "bulk" | null>(null);
+
+  // Debounce search input → query
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [status, categoryId]);
 
   const fetchExportData = async (ids: string[]) => {
     const [pRes, sRes, tRes, lRes, vRes, qRes] = await Promise.all([
@@ -253,30 +266,42 @@ function PromptsList() {
     queryFn: async () => (await supabase.from("categories").select("id,name").order("name")).data ?? [],
   });
 
-  const { data: prompts = [], isLoading } = useQuery({
-    queryKey: ["admin-prompts"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () =>
-      (
-        await supabase
-          .from("prompts")
-          .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)")
-          .order("created_at", { ascending: false })
-          .limit(500)
-      ).data ?? [],
+  const promptsQueryKey = ["admin-prompts", { page, search, status, categoryId }] as const;
+  const { data: pageData, isLoading, isFetching } = useQuery({
+    queryKey: promptsQueryKey,
+    staleTime: 60 * 1000,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      let q = supabase
+        .from("prompts")
+        .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+      if (status !== "all") q = q.eq("status", status);
+      if (categoryId !== "all") q = q.eq("category_id", categoryId);
+      const { data, count, error } = await q;
+      if (error) throw error;
+      return { rows: data ?? [], total: count ?? 0 };
+    },
   });
 
-  const filtered = useMemo(() => {
-    return prompts.filter((p: any) => {
-      if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (status !== "all" && p.status !== status) return false;
-      if (categoryId !== "all" && p.category_id !== categoryId) return false;
-      return true;
-    });
-  }, [prompts, search, status, categoryId]);
+  const pageItems = pageData?.rows ?? [];
+  const total = pageData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Fetch all IDs matching the current filters (for "Export all" / select-all-filtered)
+  const fetchFilteredIds = async (): Promise<string[]> => {
+    let q = supabase.from("prompts").select("id").order("created_at", { ascending: false });
+    if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+    if (status !== "all") q = q.eq("status", status);
+    if (categoryId !== "all") q = q.eq("category_id", categoryId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.id);
+  };
 
   const toggleSel = (id: string) => {
     const next = new Set(selected);
@@ -359,18 +384,22 @@ function PromptsList() {
     },
     onMutate: async (p) => {
       await qc.cancelQueries({ queryKey: ["admin-prompts"] });
-      const previous = qc.getQueryData<any[]>(["admin-prompts"]);
-      qc.setQueryData<any[]>(["admin-prompts"], (old) =>
-        (old ?? []).map((row: any) =>
-          row.id === p.id
-            ? { ...row, status: p.publish ? "published" : "draft", is_published: p.publish }
-            : row,
-        ),
-      );
-      return { previous };
+      const snapshots = qc.getQueriesData<{ rows: any[]; total: number }>({ queryKey: ["admin-prompts"] });
+      qc.setQueriesData<{ rows: any[]; total: number }>({ queryKey: ["admin-prompts"] }, (old) => {
+        if (!old) return old as any;
+        return {
+          ...old,
+          rows: old.rows.map((row: any) =>
+            row.id === p.id
+              ? { ...row, status: p.publish ? "published" : "draft", is_published: p.publish }
+              : row,
+          ),
+        };
+      });
+      return { snapshots };
     },
     onError: (e: any, p, ctx) => {
-      if (ctx?.previous) qc.setQueryData(["admin-prompts"], ctx.previous);
+      ctx?.snapshots?.forEach(([key, data]) => qc.setQueryData(key, data));
       toast.error(`Failed to ${p.publish ? "publish" : "move to draft"} "${p.title}"`, {
         description: e.message,
       });
@@ -390,11 +419,12 @@ function PromptsList() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={exporting === "bulk" || filtered.length === 0}
+            disabled={exporting === "bulk" || total === 0}
             onClick={async () => {
               try {
                 setExporting("bulk");
-                const rows = await fetchExportData(filtered.map((p: any) => p.id));
+                const ids = await fetchFilteredIds();
+                const rows = await fetchExportData(ids);
                 downloadJson({ exported_at: new Date().toISOString(), version: 1, count: rows.length, prompts: rows }, `prompts-export-all-${Date.now()}.json`);
                 toast.success(`Exported ${rows.length} prompts`);
               } catch (e: any) { toast.error(e.message ?? "Export failed"); }
@@ -408,11 +438,12 @@ function PromptsList() {
           </button>
           <button
             type="button"
-            disabled={exportingZip === "bulk" || filtered.length === 0}
+            disabled={exportingZip === "bulk" || total === 0}
             onClick={async () => {
               try {
                 setExportingZip("bulk");
-                const n = await exportManyZip(filtered.map((p: any) => p.id), `prompts-export-all-${Date.now()}.zip`);
+                const ids = await fetchFilteredIds();
+                const n = await exportManyZip(ids, `prompts-export-all-${Date.now()}.zip`);
                 toast.success(`Exported ${n} prompts as ZIP`);
               } catch (e: any) { toast.error(e.message ?? "Export failed"); }
               finally { setExportingZip(null); }
@@ -432,14 +463,14 @@ function PromptsList() {
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search by title…"
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by title…"
             className="w-full rounded-lg border border-border bg-input/40 pl-9 pr-3 py-2 text-sm" />
         </div>
-        <select value={status} onChange={(e) => { setStatus(e.target.value as Status); setPage(1); }}
+        <select value={status} onChange={(e) => setStatus(e.target.value as Status)}
           className="rounded-lg border border-border bg-input/40 px-3 py-2 text-sm">
           {STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All status" : s[0].toUpperCase() + s.slice(1)}</option>)}
         </select>
-        <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
           className="rounded-lg border border-border bg-input/40 px-3 py-2 text-sm">
           <option value="all">All categories</option>
           {cats.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -516,13 +547,16 @@ function PromptsList() {
           </table>
         </div>
 
-        {totalPages > 1 && (
+        {total > 0 && (
           <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground">
-            <span>{filtered.length} prompts</span>
+            <span>
+              {total} prompt{total === 1 ? "" : "s"}
+              {isFetching ? " · updating…" : ""}
+            </span>
             <div className="flex items-center gap-1">
               <button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Prev</button>
               <span>Page {page} / {totalPages}</span>
-              <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Next</button>
+              <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Next</button>
             </div>
           </div>
         )}
