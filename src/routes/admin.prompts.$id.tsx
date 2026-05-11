@@ -808,18 +808,35 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // sync_sub_prompts RPC the main Save button uses. Unsaved (no-id) items are
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
+  const [autoFixPending, setAutoFixPending] = useState(false);
+
+  // Preview of what auto-fix will change: returns the proposed order and the
+  // list of items whose rendered position would move. Computed without
+  // mutating state so we can show a confirmation prompt first.
+  const autoFixPreview = useMemo(() => {
+    const saved = items.filter((s) => s.id);
+    const unsaved = items.filter((s) => !s.id);
+    const sortedSaved = [...saved].sort((a, b) => {
+      const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
+      if (d !== 0) return d;
+      const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
+      if (c !== 0) return c;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    });
+    const proposed = [...sortedSaved, ...unsaved];
+    const moves: { title: string; from: number; to: number }[] = [];
+    proposed.forEach((s, to) => {
+      const from = items.findIndex((x) => x === s);
+      if (from !== to) {
+        moves.push({ title: s.title?.trim() || `Prompt ${to + 1}`, from, to });
+      }
+    });
+    return { proposed, moves };
+  }, [items]);
+
   const autoFix = useMutation({
     mutationFn: async () => {
-      const saved = items.filter((s) => s.id);
-      const unsaved = items.filter((s) => !s.id);
-      const sortedSaved = [...saved].sort((a, b) => {
-        const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
-        if (d !== 0) return d;
-        const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
-        if (c !== 0) return c;
-        return String(a.id ?? "").localeCompare(String(b.id ?? ""));
-      });
-      const next = [...sortedSaved, ...unsaved];
+      const next = autoFixPreview.proposed;
       setItems(next);
 
       if (!promptId) return { reordered: next.length, persisted: false };
@@ -842,6 +859,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       return { reordered: next.length, persisted: true };
     },
     onSuccess: (res) => {
+      setAutoFixPending(false);
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -850,7 +868,10 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         toast.success("Reordered locally — save the prompt to persist");
       }
     },
-    onError: (e: any) => toast.error(e.message ?? "Auto-fix failed"),
+    onError: (e: any) => {
+      setAutoFixPending(false);
+      toast.error(e.message ?? "Auto-fix failed");
+    },
   });
 
   return (
