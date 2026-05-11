@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2 } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2, Bold, Italic, Heading1, Heading2, Code, Code2, Link as LinkIcon, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -1642,12 +1642,9 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                     })}
                   </div>
                 </div>
-                <textarea
-                  placeholder="Notes (markdown supported)"
+                <NotesEditor
                   value={s.notes}
-                  onChange={(e) => update(i, { notes: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-mono"
+                  onChange={(v) => update(i, { notes: v })}
                 />
               </div>
             </details>
@@ -1679,5 +1676,133 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         </div>
       )}
     </section>
+  );
+}
+
+function NotesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  const apply = (
+    mode: "wrap" | "linePrefix" | "block",
+    a: string,
+    b: string = a,
+    placeholder: string = "text",
+  ) => {
+    const ta = ref.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    const val = ta.value;
+    const selected = val.slice(start, end);
+
+    let next = val;
+    let newStart = start;
+    let newEnd = end;
+
+    if (mode === "wrap") {
+      const inner = selected || placeholder;
+      next = val.slice(0, start) + a + inner + b + val.slice(end);
+      newStart = start + a.length;
+      newEnd = newStart + inner.length;
+    } else if (mode === "linePrefix") {
+      const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+      const lineEnd = val.indexOf("\n", end);
+      const blockEnd = lineEnd === -1 ? val.length : lineEnd;
+      const block = val.slice(lineStart, blockEnd);
+      const lines = block.split("\n");
+      const updated = lines
+        .map((ln, idx) => {
+          if (a === "1. ") return `${idx + 1}. ${ln.replace(/^\s*\d+\.\s+/, "")}`;
+          return ln.startsWith(a) ? ln.slice(a.length) : a + ln;
+        })
+        .join("\n");
+      next = val.slice(0, lineStart) + updated + val.slice(blockEnd);
+      newStart = lineStart;
+      newEnd = lineStart + updated.length;
+    } else if (mode === "block") {
+      const inner = selected || placeholder;
+      const wrap = `${a}\n${inner}\n${b}`;
+      next = val.slice(0, start) + wrap + val.slice(end);
+      newStart = start + a.length + 1;
+      newEnd = newStart + inner.length;
+    }
+
+    onChange(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(newStart, newEnd);
+    });
+  };
+
+  const insertLink = () => {
+    const ta = ref.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    const val = ta.value;
+    const selected = val.slice(start, end) || "link text";
+    const url = window.prompt("URL", "https://");
+    if (!url) return;
+    const snippet = `[${selected}](${url})`;
+    const next = val.slice(0, start) + snippet + val.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + 1, start + 1 + selected.length);
+    });
+  };
+
+  const copyAll = async () => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Notes copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    const k = e.key.toLowerCase();
+    if (k === "b") { e.preventDefault(); apply("wrap", "**", "**", "bold"); }
+    else if (k === "i") { e.preventDefault(); apply("wrap", "*", "*", "italic"); }
+    else if (k === "e") { e.preventDefault(); apply("wrap", "`", "`", "code"); }
+    else if (k === "k") { e.preventDefault(); insertLink(); }
+  };
+
+  const btn = "grid h-7 w-7 place-items-center rounded border border-border bg-background/40 text-muted-foreground hover:text-foreground hover:border-primary/40";
+
+  return (
+    <div className="rounded-md border border-border bg-input/40">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border px-1.5 py-1">
+        <button type="button" onClick={() => apply("wrap", "**", "**", "bold")} title="Bold (Ctrl+B)" className={btn}><Bold className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("wrap", "*", "*", "italic")} title="Italic (Ctrl+I)" className={btn}><Italic className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("wrap", "~~", "~~", "strike")} title="Strikethrough" className={btn}><Strikethrough className="h-3.5 w-3.5" /></button>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <button type="button" onClick={() => apply("linePrefix", "# ")} title="Heading 1" className={btn}><Heading1 className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("linePrefix", "## ")} title="Heading 2" className={btn}><Heading2 className="h-3.5 w-3.5" /></button>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <button type="button" onClick={() => apply("wrap", "`", "`", "code")} title="Inline code (Ctrl+E)" className={btn}><Code className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("block", "```", "```", "code")} title="Code block" className={btn}><Code2 className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={insertLink} title="Link (Ctrl+K)" className={btn}><LinkIcon className="h-3.5 w-3.5" /></button>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <button type="button" onClick={() => apply("linePrefix", "- ")} title="Bullet list" className={btn}><List className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("linePrefix", "1. ")} title="Numbered list" className={btn}><ListOrdered className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => apply("linePrefix", "> ")} title="Quote" className={btn}><Quote className="h-3.5 w-3.5" /></button>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <button type="button" onClick={copyAll} title="Copy notes" className={btn}><CopyIcon className="h-3.5 w-3.5" /></button>
+      </div>
+      <textarea
+        ref={ref}
+        placeholder="Notes (markdown supported)"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        rows={4}
+        className="w-full bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none resize-y"
+      />
+    </div>
   );
 }
