@@ -594,17 +594,7 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
         </div>
       </div>
       {disabled && <p className="text-xs text-muted-foreground">Save the prompt first to add {title.toLowerCase()}.</p>}
-      <div
-        className="space-y-3"
-        onFocus={(e) => {
-          const t = e.target as HTMLElement;
-          if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") setIsTyping(true);
-        }}
-        onBlur={(e) => {
-          const t = e.target as HTMLElement;
-          if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") setIsTyping(false);
-        }}
-      >
+      <div className="space-y-3">
         {items.map((item, i) => (
           <div key={item.id ?? i} className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
