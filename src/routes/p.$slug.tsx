@@ -309,7 +309,10 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
   }, [content]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const tokens = Math.ceil(content.length / 4);
+  const fillAllowed = sub.fill_in_enabled !== false;
   const [fillEnabled, setFillEnabled] = useState(true);
+  const showFillToggle = fillAllowed && variables.length > 0 && unlocked;
+  const showFillPanel = showFillToggle && fillEnabled;
 
   const buildContent = () => {
     let c = content;
@@ -348,7 +351,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {variables.length > 0 && unlocked && (
+          {showFillToggle && (
             <button
               onClick={() => setFillEnabled((v) => !v)}
               aria-pressed={fillEnabled}
@@ -380,7 +383,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
         </div>
       </div>
 
-      {variables.length > 0 && unlocked && fillEnabled && (
+      {showFillPanel && (
         <div className="border-b border-border bg-background/30 px-4 py-3">
           <div className="text-xs font-semibold inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Fill in your values</div>
           <div className="mt-2 grid sm:grid-cols-2 gap-2">

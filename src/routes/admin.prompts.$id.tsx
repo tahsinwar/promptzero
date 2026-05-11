@@ -48,6 +48,7 @@ type SubPrompt = {
   ai_models: string[];
   difficulty: string | null;
   notes: string;
+  fill_in_enabled: boolean;
   // Snapshot of DB ordering fields (for admin verification only — not edited here)
   saved_display_order?: number | null;
   saved_created_at?: string | null;
@@ -55,7 +56,7 @@ type SubPrompt = {
 
 const emptySub = (): SubPrompt => ({
   title: "", content: "", description: "",
-  ai_models: [], difficulty: null, notes: "",
+  ai_models: [], difficulty: null, notes: "", fill_in_enabled: true,
 });
 
 const empty: Form = {
@@ -138,6 +139,7 @@ function EditPrompt() {
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty,
         notes: s.notes ?? "",
+        fill_in_enabled: s.fill_in_enabled ?? true,
         saved_display_order: typeof s.display_order === "number" ? s.display_order : null,
         saved_created_at: s.created_at ?? null,
       })),
@@ -231,6 +233,7 @@ function EditPrompt() {
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error: syncErr } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: pid,
@@ -310,6 +313,7 @@ function EditPrompt() {
           ai_models: s.ai_models ?? [],
           difficulty: s.difficulty || null,
           notes: s.notes || null,
+          fill_in_enabled: s.fill_in_enabled ?? true,
         }));
         const { error: dupErr } = await supabase.rpc("sync_sub_prompts" as any, {
           p_id: data.id,
@@ -1002,6 +1006,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
@@ -1056,6 +1061,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
@@ -1107,6 +1113,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
@@ -1651,6 +1658,16 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                 />
               </div>
             </details>
+            <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background/30 px-3 py-2 text-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={s.fill_in_enabled !== false}
+                onChange={(e) => update(i, { fill_in_enabled: e.target.checked })}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span className="font-semibold">Show "Fill in your values" on user end</span>
+              <span className="text-muted-foreground">— lets visitors replace [placeholders] before copying</span>
+            </label>
           </div>
           );
         })}

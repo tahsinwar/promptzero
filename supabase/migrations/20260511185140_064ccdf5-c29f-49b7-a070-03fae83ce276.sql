@@ -1,0 +1,1 @@
+ALTER TABLE public.sub_prompts ADD COLUMN IF NOT EXISTS fill_in_enabled boolean NOT NULL DEFAULT true;

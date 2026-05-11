@@ -398,6 +398,7 @@ export type Database = {
           description: string | null
           difficulty: string | null
           display_order: number
+          fill_in_enabled: boolean
           id: string
           notes: string | null
           prompt_id: string
@@ -412,6 +413,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           display_order?: number
+          fill_in_enabled?: boolean
           id?: string
           notes?: string | null
           prompt_id: string
@@ -426,6 +428,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           display_order?: number
+          fill_in_enabled?: boolean
           id?: string
           notes?: string | null
           prompt_id?: string
