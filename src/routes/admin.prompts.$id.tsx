@@ -645,7 +645,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // through to the items-change useEffect which auto-dismisses with an
   // "expired" activity note.
   const confirmDiscardUndo = (actionLabel: string): boolean => {
-    if (!autoFixUndoRef.current) return true;
+    if (!autoFixUndo) return true;
     const ok = window.confirm(
       `You have an active Auto-fix Undo snapshot. ${actionLabel} will discard it and you won't be able to revert the previous reorder.\n\nProceed?`,
     );
