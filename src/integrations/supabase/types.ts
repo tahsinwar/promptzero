@@ -539,6 +539,10 @@ export type Database = {
         Returns: undefined
       }
       increment_view_count: { Args: { p_slug: string }; Returns: undefined }
+      sync_sub_prompts: {
+        Args: { items: Json; p_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
