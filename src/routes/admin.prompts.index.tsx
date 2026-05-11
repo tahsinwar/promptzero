@@ -419,11 +419,12 @@ function PromptsList() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={exporting === "bulk" || filtered.length === 0}
+            disabled={exporting === "bulk" || total === 0}
             onClick={async () => {
               try {
                 setExporting("bulk");
-                const rows = await fetchExportData(filtered.map((p: any) => p.id));
+                const ids = await fetchFilteredIds();
+                const rows = await fetchExportData(ids);
                 downloadJson({ exported_at: new Date().toISOString(), version: 1, count: rows.length, prompts: rows }, `prompts-export-all-${Date.now()}.json`);
                 toast.success(`Exported ${rows.length} prompts`);
               } catch (e: any) { toast.error(e.message ?? "Export failed"); }
@@ -437,11 +438,12 @@ function PromptsList() {
           </button>
           <button
             type="button"
-            disabled={exportingZip === "bulk" || filtered.length === 0}
+            disabled={exportingZip === "bulk" || total === 0}
             onClick={async () => {
               try {
                 setExportingZip("bulk");
-                const n = await exportManyZip(filtered.map((p: any) => p.id), `prompts-export-all-${Date.now()}.zip`);
+                const ids = await fetchFilteredIds();
+                const n = await exportManyZip(ids, `prompts-export-all-${Date.now()}.zip`);
                 toast.success(`Exported ${n} prompts as ZIP`);
               } catch (e: any) { toast.error(e.message ?? "Export failed"); }
               finally { setExportingZip(null); }
@@ -461,14 +463,14 @@ function PromptsList() {
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search by title…"
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by title…"
             className="w-full rounded-lg border border-border bg-input/40 pl-9 pr-3 py-2 text-sm" />
         </div>
-        <select value={status} onChange={(e) => { setStatus(e.target.value as Status); setPage(1); }}
+        <select value={status} onChange={(e) => setStatus(e.target.value as Status)}
           className="rounded-lg border border-border bg-input/40 px-3 py-2 text-sm">
           {STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All status" : s[0].toUpperCase() + s.slice(1)}</option>)}
         </select>
-        <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
           className="rounded-lg border border-border bg-input/40 px-3 py-2 text-sm">
           <option value="all">All categories</option>
           {cats.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
