@@ -257,9 +257,13 @@ function PromptDetail() {
 function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
   const subs: any[] = useMemo(() => {
     const list = (prompt.sub_prompts ?? []).slice().sort((a: any, b: any) => {
+      // Primary: display_order (defaults to 0 if missing)
       const d = (a.display_order ?? 0) - (b.display_order ?? 0);
       if (d !== 0) return d;
-      return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+      // Safe fallback: created_at may be absent — use empty string, then id, for determinism
+      const c = String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+      if (c !== 0) return c;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
     });
     if (list.length > 0) return list;
     // Fallback: legacy single content
