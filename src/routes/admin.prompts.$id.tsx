@@ -895,6 +895,20 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                     Breakdown — which items caused issues
                   </summary>
                   <div className="space-y-2 p-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1.5">
+                      <div className="text-[11px] text-muted-foreground">
+                        Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
+                      </div>
+                      <button
+                        type="button"
+                        disabled={autoFix.isPending}
+                        onClick={() => autoFix.mutate()}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+                      >
+                        {autoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                        Auto-fix order
+                      </button>
+                    </div>
                     {fieldDiff.length > 0 && (
                       <div>
                         <div className="font-semibold text-foreground">Client vs server field diff</div>
