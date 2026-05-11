@@ -756,6 +756,18 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
                 <GripVertical className="h-4 w-4" />
               </span>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</span>
+              <span
+                title={`Saved display_order: ${s.saved_display_order ?? "—"} · created_at: ${s.saved_created_at ?? "—"}`}
+                className={`text-[10px] font-mono rounded px-1.5 py-0.5 border ${
+                  s.id == null
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : s.saved_display_order === i
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                }`}
+              >
+                {s.id == null ? "NEW" : `DB:${s.saved_display_order ?? "?"}`}
+              </span>
               <input
                 placeholder="Sub-prompt title"
                 value={s.title}
