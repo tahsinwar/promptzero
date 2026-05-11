@@ -1170,37 +1170,76 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                         </div>
                       )}
                     </div>
-                    {autoFixUndo && !autoFixPending && (
-                      <div className="flex items-center justify-between gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-foreground">
-                        <div className="flex items-start gap-1.5">
-                          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
-                          <div>
-                            Auto-fix moved <span className="font-semibold">{autoFixUndo.movedCount}</span> item{autoFixUndo.movedCount === 1 ? "" : "s"}.{" "}
-                            {autoFixUndo.persisted
-                              ? <>Order was persisted to the DB. Undo will call <code className="font-mono">sync_sub_prompts</code> with the previous order (<code className="font-mono">created_at</code> stays untouched).</>
-                              : <>Order was changed locally only. Undo will restore the previous order in the editor.</>}
+                    {autoFixUndo && !autoFixPending && (() => {
+                      const interactionBusy = isTyping || dragIdx !== null;
+                      const disabledReason = interactionBusy
+                        ? (dragIdx !== null ? "Finish the drag before undoing" : "Finish typing before undoing")
+                        : null;
+                      return (
+                        <div className="space-y-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-foreground">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-start gap-1.5">
+                              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
+                              <div>
+                                Auto-fix moved <span className="font-semibold">{autoFixUndo.movedCount}</span> item{autoFixUndo.movedCount === 1 ? "" : "s"}.{" "}
+                                {autoFixUndo.persisted
+                                  ? <>Order was persisted to the DB. Undo will call <code className="font-mono">sync_sub_prompts</code> with the previous order (<code className="font-mono">created_at</code> stays untouched).</>
+                                  : <>Order was changed locally only. Undo will restore the previous order in the editor.</>}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 gap-1.5">
+                              <button
+                                type="button"
+                                disabled={undoAutoFix.isPending || interactionBusy}
+                                onClick={() => undoAutoFix.mutate()}
+                                title={disabledReason ?? "Restore previous order"}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-500 hover:bg-emerald-500/25 disabled:opacity-50"
+                              >
+                                {undoAutoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                                Undo auto-fix
+                              </button>
+                              <button
+                                type="button"
+                                disabled={undoAutoFix.isPending}
+                                onClick={() => {
+                                  setAutoFixUndo(null);
+                                  setLastUndoActivity({ kind: "dismissed", at: Date.now() });
+                                }}
+                                title="Dismiss undo option"
+                                className="inline-flex items-center rounded-md border border-border px-1.5 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="pl-5 text-[10px] text-muted-foreground">
+                            ⚠ This undo option expires the moment you start any manual drag, move, or text edit — confirm before discarding it.
+                            {disabledReason && (
+                              <span className="ml-1 font-semibold text-amber-500">{disabledReason}.</span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex shrink-0 gap-1.5">
-                          <button
-                            type="button"
-                            disabled={undoAutoFix.isPending}
-                            onClick={() => undoAutoFix.mutate()}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-500 hover:bg-emerald-500/25 disabled:opacity-60"
-                          >
-                            {undoAutoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
-                            Undo auto-fix
-                          </button>
-                          <button
-                            type="button"
-                            disabled={undoAutoFix.isPending}
-                            onClick={() => setAutoFixUndo(null)}
-                            title="Dismiss undo option"
-                            className="inline-flex items-center rounded-md border border-border px-1.5 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
+                      );
+                    })()}
+                    {!autoFixUndo && lastUndoActivity && (
+                      <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1 text-[10px] text-muted-foreground">
+                        <span>
+                          Last Auto-fix Undo:{" "}
+                          <span className="font-semibold text-foreground">
+                            {lastUndoActivity.kind === "applied" && "applied"}
+                            {lastUndoActivity.kind === "dismissed" && "dismissed"}
+                            {lastUndoActivity.kind === "expired" && "expired (manual edit detected)"}
+                          </span>
+                          {" "}· {new Date(lastUndoActivity.at).toLocaleTimeString()}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setLastUndoActivity(null)}
+                          className="rounded p-0.5 hover:bg-secondary"
+                          aria-label="Clear activity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
                     )}
                     {fieldDiff.length > 0 && (
