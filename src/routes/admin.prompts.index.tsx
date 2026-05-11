@@ -420,6 +420,18 @@ function PromptsList() {
           <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "published", is_published: true })} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">Publish</button>
           <button disabled={bulkUpdate.isPending} onClick={() => bulkUpdate.mutate({ status: "draft", is_published: false })} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60">Unpublish</button>
           <button disabled={exporting === "bulk"} onClick={exportBulk} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60 inline-flex items-center gap-1.5">{exporting === "bulk" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Export</button>
+          <button
+            disabled={exportingZip === "bulk"}
+            onClick={async () => {
+              try {
+                setExportingZip("bulk");
+                const n = await exportManyZip(Array.from(selected), `prompts-export-${Date.now()}.zip`);
+                toast.success(`Exported ${n} prompts as ZIP`);
+              } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+              finally { setExportingZip(null); }
+            }}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary disabled:opacity-60 inline-flex items-center gap-1.5"
+          >{exportingZip === "bulk" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}ZIP</button>
           <button disabled={bulkDelete.isPending} onClick={() => setConfirmBulkDelete(true)} className="rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-60">Delete</button>
           <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
