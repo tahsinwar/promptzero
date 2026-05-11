@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2 } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2 } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -809,6 +809,17 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
   const [autoFixPending, setAutoFixPending] = useState(false);
+  // Snapshot captured at the moment Auto-fix runs, so the admin can undo the
+  // reorder if the result wasn't what they expected. Cleared on any subsequent
+  // manual edit, drag, or successful undo.
+  const [autoFixUndo, setAutoFixUndo] = useState<
+    | {
+        items: SubPrompt[];
+        persisted: boolean;
+        movedCount: number;
+      }
+    | null
+  >(null);
 
   // Preview of what auto-fix will change: returns the proposed order and the
   // list of items whose rendered position would move. Computed without
@@ -855,10 +866,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
 
   const autoFix = useMutation({
     mutationFn: async () => {
+      const prev = items;
       const next = autoFixPreview.proposed;
+      const movedCount = autoFixPreview.moves.length;
       setItems(next);
 
-      if (!promptId) return { reordered: next.length, persisted: false };
+      if (!promptId) {
+        return { reordered: next.length, persisted: false, prev, movedCount };
+      }
 
       // Same payload shape used by the parent Save mutation.
       const itemsPayload = next.map((s, i) => ({
@@ -875,10 +890,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true };
+      return { reordered: next.length, persisted: true, prev, movedCount };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
+      setAutoFixUndo({ items: res.prev, persisted: res.persisted, movedCount: res.movedCount });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -892,6 +908,47 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       toast.error(e.message ?? "Auto-fix failed");
     },
   });
+
+  // Undo: restore the items array captured before the last Auto-fix. If the
+  // reorder was persisted, also push the previous order through sync_sub_prompts
+  // so the DB display_order reverts. created_at stays untouched in both cases.
+  const undoAutoFix = useMutation({
+    mutationFn: async () => {
+      if (!autoFixUndo) return { persisted: false };
+      const prev = autoFixUndo.items;
+      setItems(prev);
+
+      if (!autoFixUndo.persisted || !promptId) return { persisted: false };
+
+      const itemsPayload = prev.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: promptId,
+        items: itemsPayload as any,
+      });
+      if (error) throw error;
+      return { persisted: true };
+    },
+    onSuccess: (res) => {
+      setAutoFixUndo(null);
+      if (res.persisted) {
+        qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
+        refetchServerReport();
+        toast.success("Reverted to previous order");
+      } else {
+        toast.success("Reverted locally");
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? "Undo failed"),
+  });
+
 
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
@@ -1043,6 +1100,39 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                         </div>
                       )}
                     </div>
+                    {autoFixUndo && !autoFixPending && (
+                      <div className="flex items-center justify-between gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-foreground">
+                        <div className="flex items-start gap-1.5">
+                          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
+                          <div>
+                            Auto-fix moved <span className="font-semibold">{autoFixUndo.movedCount}</span> item{autoFixUndo.movedCount === 1 ? "" : "s"}.{" "}
+                            {autoFixUndo.persisted
+                              ? <>Order was persisted to the DB. Undo will call <code className="font-mono">sync_sub_prompts</code> with the previous order (<code className="font-mono">created_at</code> stays untouched).</>
+                              : <>Order was changed locally only. Undo will restore the previous order in the editor.</>}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-1.5">
+                          <button
+                            type="button"
+                            disabled={undoAutoFix.isPending}
+                            onClick={() => undoAutoFix.mutate()}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-500 hover:bg-emerald-500/25 disabled:opacity-60"
+                          >
+                            {undoAutoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                            Undo auto-fix
+                          </button>
+                          <button
+                            type="button"
+                            disabled={undoAutoFix.isPending}
+                            onClick={() => setAutoFixUndo(null)}
+                            title="Dismiss undo option"
+                            className="inline-flex items-center rounded-md border border-border px-1.5 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {fieldDiff.length > 0 && (
                       <div>
                         <div className="font-semibold text-foreground">Client vs server field diff</div>
