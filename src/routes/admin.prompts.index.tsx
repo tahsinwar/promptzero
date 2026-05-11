@@ -220,9 +220,29 @@ function PromptsList() {
     <div>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <h1 className="text-3xl font-bold">Prompts</h1>
-        <Link to="/admin/prompts/$id" params={{ id: "new" }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
-          <Plus className="h-4 w-4" /> New prompt
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={exporting === "bulk" || filtered.length === 0}
+            onClick={async () => {
+              try {
+                setExporting("bulk");
+                const rows = await fetchExportData(filtered.map((p: any) => p.id));
+                downloadJson({ exported_at: new Date().toISOString(), version: 1, count: rows.length, prompts: rows }, `prompts-export-all-${Date.now()}.json`);
+                toast.success(`Exported ${rows.length} prompts`);
+              } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+              finally { setExporting(null); }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+            title="Export all filtered prompts as JSON"
+          >
+            {exporting === "bulk" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export all
+          </button>
+          <Link to="/admin/prompts/$id" params={{ id: "new" }} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow">
+            <Plus className="h-4 w-4" /> New prompt
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
