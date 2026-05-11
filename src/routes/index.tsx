@@ -95,15 +95,10 @@ function HomePage() {
   const { data: stats } = useQuery({
     queryKey: ["home-stats"],
     queryFn: async () => {
-      const [{ count: prompts }, { data: aiRows }, { data: copyRows }] = await Promise.all([
-        supabase.from("prompts").select("*", { count: "exact", head: true }).eq("is_published", true),
-        supabase.from("prompts").select("ai_models").eq("is_published", true),
-        supabase.from("prompts").select("copy_count").eq("is_published", true),
-      ]);
-      const tools = new Set<string>();
-      aiRows?.forEach((r) => (r.ai_models ?? []).forEach((m: string) => m && tools.add(m)));
-      const totalCopies = (copyRows ?? []).reduce((acc, r) => acc + (r.copy_count ?? 0), 0);
-      return { prompts: prompts ?? 0, tools: tools.size, copies: totalCopies };
+      const { data, error } = await supabase.rpc("get_home_stats" as any);
+      if (error) throw error;
+      const d = (data ?? {}) as { prompts?: number; tools?: number; copies?: number };
+      return { prompts: d.prompts ?? 0, tools: d.tools ?? 0, copies: d.copies ?? 0 };
     },
     staleTime: STALE,
   });
