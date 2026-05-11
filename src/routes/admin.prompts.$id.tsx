@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
 import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2, Bold, Italic, Heading1, Heading2, Code, Code2, Link as LinkIcon, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { Eye, EyeOff as EyeOffIcon } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
