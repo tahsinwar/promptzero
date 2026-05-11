@@ -936,6 +936,30 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                   </summary>
                   <div className="space-y-2 p-2 text-[11px] text-muted-foreground">
                     <div className="rounded border border-border bg-background/60 px-2 py-1.5">
+                      {autoFixPreview.moves.length > 0 && (
+                        autoFixPreview.localOnly ? (
+                          <div className="mb-1.5 flex items-start gap-1.5 rounded border border-muted-foreground/30 bg-muted/40 px-2 py-1 text-[11px] text-foreground">
+                            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                            <div>
+                              <span className="font-semibold">Local-only reorder.</span>{" "}
+                              {!promptId
+                                ? <>This prompt has not been saved yet, so <code className="font-mono">sync_sub_prompts</code> won't be called. The new order lives in the editor only — press <span className="font-semibold">Save</span> at the top to persist.</>
+                                : <>Only unsaved item{autoFixPreview.unsavedMoves === 1 ? "" : "s"} will move ({autoFixPreview.unsavedMoves} unsaved, 0 saved). No DB write happens now — the new order is persisted when you press <span className="font-semibold">Save</span>.</>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mb-1.5 flex items-start gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-foreground">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                            <div>
+                              <span className="font-semibold">DB write incoming.</span>{" "}
+                              {autoFixPreview.savedMoves} saved row{autoFixPreview.savedMoves === 1 ? "" : "s"} will be reordered, which triggers <code className="font-mono">sync_sub_prompts</code> immediately on confirm. <code className="font-mono">created_at</code> stays untouched; only <code className="font-mono">display_order</code> changes.
+                              {autoFixPreview.unsavedMoves > 0 && (
+                                <> {autoFixPreview.unsavedMoves} unsaved row{autoFixPreview.unsavedMoves === 1 ? " is" : "s are"} also repositioned locally.</>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      )}
                       {!autoFixPending ? (
                         <div className="flex items-center justify-between gap-2">
                           <div className="space-y-0.5 text-[11px] text-muted-foreground">
