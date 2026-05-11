@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2 } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -803,6 +803,56 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   );
   useEffect(() => { if (promptId) refetchServerReport(); }, [dbSig, promptId, refetchServerReport]);
 
+  // Auto-fix: deterministically reorder items to match the server sort key
+  // (saved_display_order, saved_created_at, id) and persist via the same
+  // sync_sub_prompts RPC the main Save button uses. Unsaved (no-id) items are
+  // appended at the end, preserving their current rendered order.
+  const qc = useQueryClient();
+  const autoFix = useMutation({
+    mutationFn: async () => {
+      const saved = items.filter((s) => s.id);
+      const unsaved = items.filter((s) => !s.id);
+      const sortedSaved = [...saved].sort((a, b) => {
+        const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
+        if (d !== 0) return d;
+        const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
+        if (c !== 0) return c;
+        return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+      });
+      const next = [...sortedSaved, ...unsaved];
+      setItems(next);
+
+      if (!promptId) return { reordered: next.length, persisted: false };
+
+      // Same payload shape used by the parent Save mutation.
+      const itemsPayload = next.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: promptId,
+        items: itemsPayload as any,
+      });
+      if (error) throw error;
+      return { reordered: next.length, persisted: true };
+    },
+    onSuccess: (res) => {
+      if (res.persisted) {
+        qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
+        refetchServerReport();
+        toast.success(`Auto-fixed order for ${res.reordered} item${res.reordered === 1 ? "" : "s"}`);
+      } else {
+        toast.success("Reordered locally — save the prompt to persist");
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? "Auto-fix failed"),
+  });
+
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
@@ -845,6 +895,20 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                     Breakdown — which items caused issues
                   </summary>
                   <div className="space-y-2 p-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1.5">
+                      <div className="text-[11px] text-muted-foreground">
+                        Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
+                      </div>
+                      <button
+                        type="button"
+                        disabled={autoFix.isPending}
+                        onClick={() => autoFix.mutate()}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+                      >
+                        {autoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                        Auto-fix order
+                      </button>
+                    </div>
                     {fieldDiff.length > 0 && (
                       <div>
                         <div className="font-semibold text-foreground">Client vs server field diff</div>
