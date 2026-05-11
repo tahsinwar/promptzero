@@ -547,13 +547,16 @@ function PromptsList() {
           </table>
         </div>
 
-        {totalPages > 1 && (
+        {total > 0 && (
           <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground">
-            <span>{filtered.length} prompts</span>
+            <span>
+              {total} prompt{total === 1 ? "" : "s"}
+              {isFetching ? " · updating…" : ""}
+            </span>
             <div className="flex items-center gap-1">
               <button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Prev</button>
               <span>Page {page} / {totalPages}</span>
-              <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Next</button>
+              <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded px-2 py-1 hover:bg-secondary disabled:opacity-30">Next</button>
             </div>
           </div>
         )}
