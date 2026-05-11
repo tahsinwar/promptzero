@@ -626,23 +626,59 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
 const DIFFICULTIES = ["beginner", "intermediate", "advanced"] as const;
 
 function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void; promptId: string | null }) {
-  const add = () => setItems([...items, emptySub()]);
+  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  // Tracks focus inside any text field in the editor — used to disable Undo
+  // mid-typing so a stale snapshot can't be restored.
+  const [isTyping, setIsTyping] = useState(false);
+  // Activity log for Auto-fix undo lifecycle. Surfaced briefly in the UI.
+  const [lastUndoActivity, setLastUndoActivity] = useState<
+    | { kind: "applied" | "dismissed" | "expired"; at: number }
+    | null
+  >(null);
+
+  // Guard a structural mutation (add/remove/move/drag-reorder/toggle): if an
+  // Auto-fix Undo snapshot is currently live, ask the admin to confirm before
+  // discarding it. Returns whether the caller should proceed.
+  // We use this for deliberate ops only; typing inside text fields falls
+  // through to the items-change useEffect which auto-dismisses with an
+  // "expired" activity note.
+  const confirmDiscardUndo = (actionLabel: string): boolean => {
+    if (!autoFixUndoRef.current) return true;
+    const ok = window.confirm(
+      `You have an active Auto-fix Undo snapshot. ${actionLabel} will discard it and you won't be able to revert the previous reorder.\n\nProceed?`,
+    );
+    if (!ok) return false;
+    setAutoFixUndo(null);
+    setLastUndoActivity({ kind: "dismissed", at: Date.now() });
+    return true;
+  };
+
+  const add = () => {
+    if (!confirmDiscardUndo("Adding a new sub-prompt")) return;
+    setItems([...items, emptySub()]);
+  };
+  // Typing through a field — no confirm, but useEffect below will expire the
+  // snapshot once items diverges from the post-fix reference.
   const update = (i: number, patch: Partial<SubPrompt>) => {
     const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
   };
-  const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));
-  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
+  const remove = (i: number) => {
+    if (!confirmDiscardUndo("Removing this sub-prompt")) return;
+    setItems(items.filter((_, idx) => idx !== i));
+  };
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
     if (j < 0 || j >= items.length) return;
+    if (!confirmDiscardUndo("Moving this sub-prompt")) return;
     const next = [...items];
     [next[i], next[j]] = [next[j], next[i]];
     setItems(next);
   };
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
   const reorder = (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+    if (!confirmDiscardUndo("Drag-reordering sub-prompts")) return;
     const next = [...items];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
@@ -666,8 +702,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   };
   const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   const toggleModel = (i: number, m: string) => {
+    if (!confirmDiscardUndo("Toggling AI models")) return;
     const cur = items[i].ai_models ?? [];
-    update(i, { ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
+    const next = [...items];
+    next[i] = {
+      ...next[i],
+      ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m],
+    };
+    setItems(next);
   };
 
   // Admin order-consistency check: verifies stored display_order is strictly
