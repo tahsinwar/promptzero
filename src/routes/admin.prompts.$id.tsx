@@ -296,19 +296,24 @@ function EditPrompt() {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: data.id, tag_id })));
       }
       // duplicate sub_prompts too
+      // Centralized: route duplicate inserts through the same RPC so create
+      // and reorder paths share one code path. New ids (no `id` field) take
+      // the INSERT branch inside sync_sub_prompts.
       if (subPrompts.length) {
-        await supabase.from("sub_prompts" as any).insert(
-          subPrompts.map((s, i) => ({
-            prompt_id: data.id,
-            title: s.title || `Prompt ${i + 1}`,
-            content: s.content,
-            description: s.description || null,
-            ai_models: s.ai_models ?? [],
-            difficulty: s.difficulty || null,
-            notes: s.notes || null,
-            display_order: i,
-          })) as any,
-        );
+        const itemsPayload = subPrompts.map((s, i) => ({
+          id: null,
+          title: s.title || `Prompt ${i + 1}`,
+          content: s.content,
+          description: s.description || null,
+          ai_models: s.ai_models ?? [],
+          difficulty: s.difficulty || null,
+          notes: s.notes || null,
+        }));
+        const { error: dupErr } = await supabase.rpc("sync_sub_prompts" as any, {
+          p_id: data.id,
+          items: itemsPayload as any,
+        });
+        if (dupErr) throw dupErr;
       }
       return data.id as string;
     },
@@ -493,7 +498,7 @@ function EditPrompt() {
         </div>
         )}
 
-        <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} />
+       <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} promptId={isNew ? null : id} />
 
         <RelatedEditor title="Videos" items={videos} setItems={setVideos} disabled={isNew}
           fields={[{ key: "youtube_url", label: "YouTube URL", required: true }, { key: "title", label: "Title" }]}
@@ -620,7 +625,7 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
 
 const DIFFICULTIES = ["beginner", "intermediate", "advanced"] as const;
 
-function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void }) {
+function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void; promptId: string | null }) {
   const add = () => setItems([...items, emptySub()]);
   const update = (i: number, patch: Partial<SubPrompt>) => {
     const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
@@ -693,6 +698,30 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
     return { hasIssue, dupes, renderMismatch, gaps, missingOrder, missingCreated, unsaved, total: items.length };
   }, [items]);
 
+  // Server-side mirror of the same check (via SQL function check_sub_prompt_order).
+  // Useful to confirm the DB agrees with what we computed from fetched data.
+  const { data: serverReport, refetch: refetchServerReport } = useQuery({
+    queryKey: ["sub-prompt-order-check", promptId],
+    enabled: !!promptId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("check_sub_prompt_order" as any, { p_id: promptId });
+      if (error) throw error;
+      return data as { total: number; duplicates: number; gaps_or_mismatches: number; missing_display_order: number; missing_created_at: number; consistent: boolean };
+    },
+  });
+
+  const serverClientAgree = !serverReport
+    ? null
+    : (serverReport.consistent === !orderReport.hasIssue);
+
+  // Re-run server check when the persisted DB snapshot changes (after save reload).
+  const dbSig = useMemo(
+    () => items.filter((s) => s.id).map((s) => `${s.id}:${s.saved_display_order ?? "?"}`).join("|"),
+    [items],
+  );
+  useEffect(() => { if (promptId) refetchServerReport(); }, [dbSig, promptId, refetchServerReport]);
+
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
@@ -719,6 +748,15 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
                 <li>missing display_order: {orderReport.missingOrder}</li>
                 <li>missing created_at: {orderReport.missingCreated} (safe fallback to id applied)</li>
                 <li>current order vs DB: {orderReport.renderMismatch ? "differs — save to persist" : "matches"}</li>
+                {serverReport && (
+                  <li>
+                    server check: {serverReport.consistent ? "consistent" : "inconsistent"}
+                    {" "}(gaps {serverReport.gaps_or_mismatches}, dupes {serverReport.duplicates})
+                    {serverClientAgree === false && (
+                      <span className="ml-1 font-semibold">— mismatch with client report!</span>
+                    )}
+                  </li>
+                )}
               </ul>
             </div>
           </div>
