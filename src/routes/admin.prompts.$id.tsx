@@ -100,7 +100,8 @@ function EditPrompt() {
         .from("sub_prompts" as any)
         .select("*")
         .eq("prompt_id", id)
-        .order("display_order");
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
       return { prompt: p.data, tagIds: t.data?.map((x: any) => x.tag_id) ?? [], videos: v.data ?? [], links: l.data ?? [], qa: q.data ?? [], subPrompts: (sub.data as any[]) ?? [] };
     },
   });
