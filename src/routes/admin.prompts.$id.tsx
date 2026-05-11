@@ -214,41 +214,21 @@ function EditPrompt() {
         await supabase.from("prompt_tags").insert(selectedTags.map((tag_id) => ({ prompt_id: pid, tag_id })));
       }
 
-      // sync sub_prompts — diff against existing rows so IDs (and copy_count) stay stable
-      const { data: existingSubs } = await supabase
-        .from("sub_prompts" as any)
-        .select("id")
-        .eq("prompt_id", pid);
-      const existingIds = new Set(((existingSubs as any[]) ?? []).map((r) => r.id));
-      const keptIds = new Set(subPrompts.map((s) => s.id).filter(Boolean) as string[]);
-      const toDelete = [...existingIds].filter((x) => !keptIds.has(x));
-      if (toDelete.length) {
-        const { error: delErr } = await supabase.from("sub_prompts" as any).delete().in("id", toDelete);
-        if (delErr) throw delErr;
-      }
-      for (let i = 0; i < subPrompts.length; i++) {
-        const s = subPrompts[i];
-        const row = {
-          prompt_id: pid,
-          title: s.title || `Prompt ${i + 1}`,
-          content: s.content,
-          description: s.description || null,
-          ai_models: s.ai_models ?? [],
-          difficulty: s.difficulty || null,
-          notes: s.notes || null,
-          display_order: i,
-        };
-        if (s.id && existingIds.has(s.id)) {
-          const { error: updErr } = await supabase
-            .from("sub_prompts" as any)
-            .update(row as any)
-            .eq("id", s.id);
-          if (updErr) throw updErr;
-        } else {
-          const { error: insErr } = await supabase.from("sub_prompts" as any).insert(row as any);
-          if (insErr) throw insErr;
-        }
-      }
+      // sync sub_prompts atomically via RPC (single transaction)
+      const itemsPayload = subPrompts.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error: syncErr } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: pid,
+        items: itemsPayload as any,
+      });
+      if (syncErr) throw syncErr;
       return pid as string;
     },
     onSuccess: (pid) => {
