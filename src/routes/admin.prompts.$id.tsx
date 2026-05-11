@@ -1703,7 +1703,17 @@ function NotesEditor({ value, onChange, storageKey }: { value: string; onChange:
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const syncSource = useRef<"editor" | "preview" | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
+  const helpStorageKey = storageKey ? `${storageKey}:help` : undefined;
+  const [showHelp, setShowHelp] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !helpStorageKey) return false;
+    try { return window.localStorage.getItem(helpStorageKey) === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !helpStorageKey) return;
+    try { window.localStorage.setItem(helpStorageKey, showHelp ? "1" : "0"); } catch {}
+  }, [showHelp, helpStorageKey]);
+
   const [showPreview, setShowPreview] = useState<boolean>(() => {
     if (typeof window === "undefined" || !storageKey) return false;
     try { return window.localStorage.getItem(storageKey) === "1"; } catch { return false; }
