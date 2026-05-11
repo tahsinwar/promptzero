@@ -256,7 +256,14 @@ function PromptsList() {
   const { data: prompts = [], isLoading } = useQuery({
     queryKey: ["admin-prompts"],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("prompts")
+          .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)")
+          .order("created_at", { ascending: false })
+          .limit(500)
+      ).data ?? [],
   });
 
   const filtered = useMemo(() => {
