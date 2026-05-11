@@ -388,10 +388,7 @@ function EditPrompt() {
           <Field label="Description">
             <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)} rows={2} className={inputCls} />
           </Field>
-          <Field label="Content" required hint="Use [variable] for placeholders e.g. [topic]">
-            <textarea value={form.content} onChange={(e) => updateForm("content", e.target.value)} rows={10} className={`${inputCls} font-mono text-sm`} />
-          </Field>
-          <Field label="Notes (markdown)">
+          <Field label="Notes (markdown, page-level)">
             <textarea value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} rows={4} className={`${inputCls} font-mono text-sm`} />
           </Field>
 
@@ -487,6 +484,8 @@ function EditPrompt() {
           )}
         </div>
         )}
+
+        <SubPromptsEditor items={subPrompts} setItems={setSubPrompts} />
 
         <RelatedEditor title="Videos" items={videos} setItems={setVideos} disabled={isNew}
           fields={[{ key: "youtube_url", label: "YouTube URL", required: true }, { key: "title", label: "Title" }]}
