@@ -545,8 +545,6 @@ export type Database = {
         Returns: undefined
       }
       increment_view_count: { Args: { p_slug: string }; Returns: undefined }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       sync_sub_prompts: {
         Args: { items: Json; p_id: string }
         Returns: undefined
