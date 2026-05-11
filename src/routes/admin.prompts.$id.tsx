@@ -874,6 +874,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
     if (!autoFixUndo) return;
     if (items !== autoFixUndo.postFixItems) {
       setAutoFixUndo(null);
+      setLastUndoActivity({ kind: "expired", at: Date.now() });
     }
   }, [items, autoFixUndo]);
 
