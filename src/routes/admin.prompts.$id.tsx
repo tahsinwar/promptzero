@@ -609,3 +609,114 @@ function RelatedEditor({ title, items, setItems, fields, onSave, disabled }: {
     </section>
   );
 }
+
+const DIFFICULTIES = ["beginner", "intermediate", "advanced"] as const;
+
+function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (v: SubPrompt[]) => void }) {
+  const add = () => setItems([...items, emptySub()]);
+  const update = (i: number, patch: Partial<SubPrompt>) => {
+    const next = [...items]; next[i] = { ...next[i], ...patch }; setItems(next);
+  };
+  const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    setItems(next);
+  };
+  const toggleModel = (i: number, m: string) => {
+    const cur = items[i].ai_models ?? [];
+    update(i, { ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
+  };
+
+  return (
+    <section className="mt-6 vault-card rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-bold">Sub-prompts</h2>
+          <p className="text-xs text-muted-foreground">Add one or many prompts to this page. The info button on the public page shows description, AI models, difficulty, and notes.</p>
+        </div>
+        <button onClick={add} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-secondary">
+          <Plus className="h-3.5 w-3.5" /> Add sub-prompt
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((s, i) => (
+          <div key={i} className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</span>
+              <input
+                placeholder="Sub-prompt title"
+                value={s.title}
+                onChange={(e) => update(i, { title: e.target.value })}
+                className="flex-1 rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-semibold"
+              />
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronUp className="h-4 w-4" /></button>
+              <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronDown className="h-4 w-4" /></button>
+              <button onClick={() => remove(i)} className="grid h-8 w-8 place-items-center rounded border border-destructive/40 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
+            </div>
+
+            <textarea
+              placeholder="Prompt content (use [variable] for placeholders)"
+              value={s.content}
+              onChange={(e) => update(i, { content: e.target.value })}
+              rows={6}
+              className="w-full rounded-md border border-border bg-input/40 px-2.5 py-2 text-sm font-mono"
+            />
+
+            <details className="rounded-md border border-border/60 bg-background/30">
+              <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5" /> Info shown on "i" button
+              </summary>
+              <div className="p-3 space-y-3">
+                <textarea
+                  placeholder="Description"
+                  value={s.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm"
+                />
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <select
+                    value={s.difficulty ?? ""}
+                    onChange={(e) => update(i, { difficulty: e.target.value || null })}
+                    className="rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm"
+                  >
+                    <option value="">— Difficulty —</option>
+                    {DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">AI models</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_MODELS.map((m) => {
+                      const active = s.ai_models.includes(m);
+                      return (
+                        <button key={m} type="button" onClick={() => toggleModel(i, m)}
+                          className={`text-xs rounded-full border px-2.5 py-1 ${active ? "bg-primary/15 border-primary/40 text-primary" : "border-border bg-card/40 text-muted-foreground hover:text-foreground"}`}>
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <textarea
+                  placeholder="Notes (markdown supported)"
+                  value={s.notes}
+                  onChange={(e) => update(i, { notes: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-mono"
+                />
+              </div>
+            </details>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">No sub-prompts yet. Click "Add sub-prompt" — every page needs at least one.</p>
+        )}
+      </div>
+    </section>
+  );
+}
