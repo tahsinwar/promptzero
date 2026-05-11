@@ -634,9 +634,14 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   const [isTyping, setIsTyping] = useState(false);
   // Activity log for Auto-fix undo lifecycle. Surfaced briefly in the UI.
   const [lastUndoActivity, setLastUndoActivity] = useState<
-    | { kind: "applied" | "dismissed" | "expired"; at: number }
+    | { kind: "applied" | "dismissed" | "expired" | "redone"; at: number }
     | null
   >(null);
+  // Toggle for the inline "before → after" diff preview shown in the Undo banner.
+  const [undoPreviewOpen, setUndoPreviewOpen] = useState(false);
+  // Ticking clock used to drive the countdown progress bar in the Undo banner.
+  // Only runs while an Undo snapshot is live (see effect below).
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Guard a structural mutation (add/remove/move/drag-reorder/toggle): if an
   // Auto-fix Undo snapshot is currently live, ask the admin to confirm before
