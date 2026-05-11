@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
 import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2, Bold, Italic, Heading1, Heading2, Code, Code2, Link as LinkIcon, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { Eye } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -1681,6 +1683,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
 
 function NotesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const apply = (
     mode: "wrap" | "linePrefix" | "block",
@@ -1793,16 +1796,39 @@ function NotesEditor({ value, onChange }: { value: string; onChange: (v: string)
         <button type="button" onClick={() => apply("linePrefix", "> ")} title="Quote" className={btn}><Quote className="h-3.5 w-3.5" /></button>
         <span className="mx-0.5 h-4 w-px bg-border" />
         <button type="button" onClick={copyAll} title="Copy notes" className={btn}><CopyIcon className="h-3.5 w-3.5" /></button>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <button
+          type="button"
+          onClick={() => setShowPreview((v) => !v)}
+          title={showPreview ? "Hide preview" : "Show preview"}
+          aria-pressed={showPreview}
+          className={`inline-flex items-center gap-1 rounded border px-2 h-7 text-[11px] font-medium ${
+            showPreview ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-background/40 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Eye className="h-3.5 w-3.5" /> Preview
+        </button>
       </div>
-      <textarea
-        ref={ref}
-        placeholder="Notes (markdown supported)"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        rows={4}
-        className="w-full bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none resize-y"
-      />
+      <div className={showPreview ? "grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border" : ""}>
+        <textarea
+          ref={ref}
+          placeholder="Notes (markdown supported)"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={showPreview ? 10 : 4}
+          className="w-full bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none resize-y"
+        />
+        {showPreview && (
+          <div className="px-3 py-2 text-sm overflow-auto max-h-[400px] prose prose-invert prose-sm max-w-none prose-headings:font-semibold prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5">
+            {value.trim() ? (
+              <ReactMarkdown>{value}</ReactMarkdown>
+            ) : (
+              <p className="text-xs text-muted-foreground italic m-0">Preview will appear here…</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
