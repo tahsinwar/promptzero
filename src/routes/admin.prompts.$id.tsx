@@ -886,7 +886,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       setItems(next);
 
       if (!promptId) {
-        return { reordered: next.length, persisted: false, prev, movedCount };
+        return { reordered: next.length, persisted: false, prev, next, movedCount };
       }
 
       // Same payload shape used by the parent Save mutation.
@@ -904,11 +904,16 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true, prev, movedCount };
+      return { reordered: next.length, persisted: true, prev, next, movedCount };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
-      setAutoFixUndo({ items: res.prev, persisted: res.persisted, movedCount: res.movedCount });
+      setAutoFixUndo({
+        items: res.prev,
+        postFixItems: res.next,
+        persisted: res.persisted,
+        movedCount: res.movedCount,
+      });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
