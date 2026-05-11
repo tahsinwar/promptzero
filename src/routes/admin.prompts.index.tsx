@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download } from "lucide-react";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
 import { ShareModal } from "@/components/share-modal";
@@ -26,6 +26,66 @@ function PromptsList() {
   const [confirmPublish, setConfirmPublish] = useState<{ id: string; title: string; publish: boolean } | null>(null);
   const [confirmDuplicate, setConfirmDuplicate] = useState<{ id: string; title: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; status: string } | null>(null);
+  const [exporting, setExporting] = useState<string | "bulk" | null>(null);
+
+  const fetchExportData = async (ids: string[]) => {
+    const [pRes, sRes, tRes, lRes, vRes, qRes] = await Promise.all([
+      supabase.from("prompts").select("*").in("id", ids),
+      supabase.from("sub_prompts").select("*").in("prompt_id", ids),
+      supabase.from("prompt_tags").select("prompt_id,tags(id,name,slug)").in("prompt_id", ids),
+      supabase.from("prompt_links").select("*").in("prompt_id", ids),
+      supabase.from("prompt_videos").select("*").in("prompt_id", ids),
+      supabase.from("prompt_qa").select("*").in("prompt_id", ids),
+    ]);
+    const byId = (rows: any[] | null, key = "prompt_id") => {
+      const m: Record<string, any[]> = {};
+      (rows ?? []).forEach((r) => { (m[r[key]] ??= []).push(r); });
+      return m;
+    };
+    const subs = byId(sRes.data);
+    const tags = byId(tRes.data);
+    const links = byId(lRes.data);
+    const videos = byId(vRes.data);
+    const qa = byId(qRes.data);
+    return (pRes.data ?? []).map((p: any) => ({
+      ...p,
+      sub_prompts: (subs[p.id] ?? []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+      tags: (tags[p.id] ?? []).map((r: any) => r.tags).filter(Boolean),
+      links: (links[p.id] ?? []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+      videos: (videos[p.id] ?? []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+      qa: (qa[p.id] ?? []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+    }));
+  };
+
+  const downloadJson = (data: any, filename: string) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const exportOne = async (p: { id: string; title: string; slug: string }) => {
+    try {
+      setExporting(p.id);
+      const rows = await fetchExportData([p.id]);
+      if (!rows.length) throw new Error("Not found");
+      downloadJson({ exported_at: new Date().toISOString(), version: 1, prompt: rows[0] }, `prompt-${p.slug || p.id}.json`);
+      toast.success("Exported");
+    } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+    finally { setExporting(null); }
+  };
+
+  const exportBulk = async () => {
+    try {
+      setExporting("bulk");
+      const ids = Array.from(selected);
+      const rows = await fetchExportData(ids);
+      downloadJson({ exported_at: new Date().toISOString(), version: 1, count: rows.length, prompts: rows }, `prompts-export-${Date.now()}.json`);
+      toast.success(`Exported ${rows.length} prompts`);
+    } catch (e: any) { toast.error(e.message ?? "Export failed"); }
+    finally { setExporting(null); }
+  };
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"],
