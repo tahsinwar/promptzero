@@ -256,7 +256,11 @@ function PromptDetail() {
 /* ---------- Prompt Tab ---------- */
 function PromptTab({ prompt, unlocked }: { prompt: any; unlocked: boolean }) {
   const subs: any[] = useMemo(() => {
-    const list = (prompt.sub_prompts ?? []).slice().sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const list = (prompt.sub_prompts ?? []).slice().sort((a: any, b: any) => {
+      const d = (a.display_order ?? 0) - (b.display_order ?? 0);
+      if (d !== 0) return d;
+      return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
+    });
     if (list.length > 0) return list;
     // Fallback: legacy single content
     return [{
