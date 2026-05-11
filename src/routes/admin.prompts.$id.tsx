@@ -46,6 +46,9 @@ type SubPrompt = {
   ai_models: string[];
   difficulty: string | null;
   notes: string;
+  // Snapshot of DB ordering fields (for admin verification only — not edited here)
+  saved_display_order?: number | null;
+  saved_created_at?: string | null;
 };
 
 const emptySub = (): SubPrompt => ({
@@ -133,6 +136,8 @@ function EditPrompt() {
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty,
         notes: s.notes ?? "",
+        saved_display_order: typeof s.display_order === "number" ? s.display_order : null,
+        saved_created_at: s.created_at ?? null,
       })),
     );
   }, [loaded]);
