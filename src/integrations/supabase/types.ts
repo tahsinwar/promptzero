@@ -528,6 +528,8 @@ export type Database = {
     }
     Functions: {
       check_sub_prompt_order: { Args: { p_id: string }; Returns: Json }
+      get_home_stats: { Args: never; Returns: Json }
+      get_prompt_detail: { Args: { p_slug: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
