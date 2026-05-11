@@ -824,15 +824,34 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       return String(a.id ?? "").localeCompare(String(b.id ?? ""));
     });
     const proposed = [...sortedSaved, ...unsaved];
-    const moves: { title: string; from: number; to: number }[] = [];
+    const moves: { title: string; from: number; to: number; isSaved: boolean }[] = [];
     proposed.forEach((s, to) => {
       const from = items.findIndex((x) => x === s);
       if (from !== to) {
-        moves.push({ title: s.title?.trim() || `Prompt ${to + 1}`, from, to });
+        moves.push({
+          title: s.title?.trim() || `Prompt ${to + 1}`,
+          from,
+          to,
+          isSaved: !!s.id,
+        });
       }
     });
-    return { proposed, moves };
-  }, [items]);
+    const savedMoves = moves.filter((m) => m.isSaved).length;
+    const unsavedMoves = moves.length - savedMoves;
+    // "Local only" = no DB writes will happen: either nothing persisted yet
+    // (new prompt), or every moving row is unsaved.
+    const localOnly = !promptId || savedMoves === 0;
+    return {
+      proposed,
+      moves,
+      total: items.length,
+      savedCount: saved.length,
+      unsavedCount: unsaved.length,
+      savedMoves,
+      unsavedMoves,
+      localOnly,
+    };
+  }, [items, promptId]);
 
   const autoFix = useMutation({
     mutationFn: async () => {
