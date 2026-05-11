@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
 import { toast } from "sonner";
@@ -166,7 +166,10 @@ function EditPrompt() {
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Title is required");
       if (subPrompts.length === 0) throw new Error("Add at least one sub-prompt");
-      if (subPrompts.some((s) => !s.content.trim())) throw new Error("Every sub-prompt needs content");
+      const badContent = subPrompts.findIndex((s) => !s.content.trim());
+      if (badContent !== -1) throw new Error(`Sub-prompt #${badContent + 1}: content is required`);
+      const badTitle = subPrompts.findIndex((s) => !s.title.trim());
+      if (badTitle !== -1) throw new Error(`Sub-prompt #${badTitle + 1}: title is required`);
       if (form.is_locked && form.pin_input && !/^\d{5}$/.test(form.pin_input)) throw new Error("PIN must be 5 digits");
 
       let pin_hash = form.pin_hash;
@@ -643,29 +646,48 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
         </button>
       </div>
 
+      {items.length === 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>At least one sub-prompt is required before you can save.</span>
+        </div>
+      )}
+
       <div className="space-y-3">
-        {items.map((s, i) => (
-          <div key={i} className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
+        {items.map((s, i) => {
+          const titleMissing = !s.title.trim();
+          const contentMissing = !s.content.trim();
+          const hasError = titleMissing || contentMissing;
+          return (
+          <div key={i} className={`rounded-lg border bg-card/40 p-4 space-y-3 ${hasError ? "border-destructive/50" : "border-border"}`}>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</span>
               <input
                 placeholder="Sub-prompt title"
                 value={s.title}
                 onChange={(e) => update(i, { title: e.target.value })}
-                className="flex-1 rounded-md border border-border bg-input/40 px-2.5 py-1.5 text-sm font-semibold"
+                className={`flex-1 rounded-md border bg-input/40 px-2.5 py-1.5 text-sm font-semibold ${titleMissing ? "border-destructive/50" : "border-border"}`}
+                aria-invalid={titleMissing}
               />
               <button onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronUp className="h-4 w-4" /></button>
               <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-40"><ChevronDown className="h-4 w-4" /></button>
               <button onClick={() => setConfirmIdx(i)} className="grid h-8 w-8 place-items-center rounded border border-destructive/40 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
             </div>
+            {titleMissing && (
+              <p className="text-xs text-destructive inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Title is required</p>
+            )}
 
             <textarea
               placeholder="Prompt content (use [variable] for placeholders)"
               value={s.content}
               onChange={(e) => update(i, { content: e.target.value })}
               rows={6}
-              className="w-full rounded-md border border-border bg-input/40 px-2.5 py-2 text-sm font-mono"
+              className={`w-full rounded-md border bg-input/40 px-2.5 py-2 text-sm font-mono ${contentMissing ? "border-destructive/50" : "border-border"}`}
+              aria-invalid={contentMissing}
             />
+            {contentMissing && (
+              <p className="text-xs text-destructive inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Content is required</p>
+            )}
 
             <details className="rounded-md border border-border/60 bg-background/30">
               <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-1.5">
@@ -713,7 +735,8 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
               </div>
             </details>
           </div>
-        ))}
+          );
+        })}
         {items.length === 0 && (
           <p className="text-sm text-muted-foreground">No sub-prompts yet. Click "Add sub-prompt" — every page needs at least one.</p>
         )}
