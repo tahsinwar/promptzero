@@ -253,23 +253,29 @@ function PromptsList() {
     queryFn: async () => (await supabase.from("categories").select("id,name").order("name")).data ?? [],
   });
 
-  const { data: prompts = [], isLoading } = useQuery({
-    queryKey: ["admin-prompts"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)").order("created_at", { ascending: false })).data ?? [],
+  const { data: pageData, isLoading } = useQuery({
+    queryKey: ["admin-prompts", { search, status, categoryId, page }],
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      let q = supabase
+        .from("prompts")
+        .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)", { count: "exact" })
+        .order("created_at", { ascending: false });
+      if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+      if (status !== "all") q = q.eq("status", status);
+      if (categoryId !== "all") q = q.eq("category_id", categoryId);
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, count } = await q.range(from, to);
+      return { rows: data ?? [], count: count ?? 0 };
+    },
   });
 
-  const filtered = useMemo(() => {
-    return prompts.filter((p: any) => {
-      if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (status !== "all" && p.status !== status) return false;
-      if (categoryId !== "all" && p.category_id !== categoryId) return false;
-      return true;
-    });
-  }, [prompts, search, status, categoryId]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageItems = pageData?.rows ?? [];
+  const totalCount = pageData?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const filtered = pageItems; // kept for compatibility with existing references
+  const prompts = pageItems;
 
   const toggleSel = (id: string) => {
     const next = new Set(selected);
