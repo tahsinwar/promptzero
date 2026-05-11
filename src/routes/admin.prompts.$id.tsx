@@ -233,6 +233,7 @@ function EditPrompt() {
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error: syncErr } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: pid,
@@ -312,6 +313,7 @@ function EditPrompt() {
           ai_models: s.ai_models ?? [],
           difficulty: s.difficulty || null,
           notes: s.notes || null,
+          fill_in_enabled: s.fill_in_enabled ?? true,
         }));
         const { error: dupErr } = await supabase.rpc("sync_sub_prompts" as any, {
           p_id: data.id,
@@ -1004,6 +1006,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
@@ -1058,6 +1061,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
@@ -1109,6 +1113,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         ai_models: s.ai_models ?? [],
         difficulty: s.difficulty || null,
         notes: s.notes || null,
+        fill_in_enabled: s.fill_in_enabled ?? true,
       }));
       const { error } = await supabase.rpc("sync_sub_prompts" as any, {
         p_id: promptId,
