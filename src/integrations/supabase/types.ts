@@ -524,6 +524,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_sub_prompt_order: { Args: { p_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
