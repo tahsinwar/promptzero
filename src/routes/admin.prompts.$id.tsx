@@ -984,10 +984,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       const prev = items;
       const next = autoFixPreview.proposed;
       const movedCount = autoFixPreview.moves.length;
+      const moves = autoFixPreview.moves;
       setItems(next);
 
       if (!promptId) {
-        return { reordered: next.length, persisted: false, prev, next, movedCount };
+        return { reordered: next.length, persisted: false, prev, next, movedCount, moves };
       }
 
       // Same payload shape used by the parent Save mutation.
@@ -1005,7 +1006,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { reordered: next.length, persisted: true, prev, next, movedCount };
+      return { reordered: next.length, persisted: true, prev, next, movedCount, moves };
     },
     onSuccess: (res) => {
       setAutoFixPending(false);
@@ -1014,7 +1015,12 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         postFixItems: res.next,
         persisted: res.persisted,
         movedCount: res.movedCount,
+        moves: res.moves,
+        expiresAt: Date.now() + UNDO_TIMEOUT_MS,
       });
+      // A fresh Auto-fix invalidates any prior Redo arm.
+      setAutoFixRedo(null);
+      setUndoPreviewOpen(false);
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -1034,11 +1040,11 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // so the DB display_order reverts. created_at stays untouched in both cases.
   const undoAutoFix = useMutation({
     mutationFn: async () => {
-      if (!autoFixUndo) return { persisted: false };
+      if (!autoFixUndo) return { persisted: false, snap: null as null | typeof autoFixUndo };
       const prev = autoFixUndo.items;
       setItems(prev);
 
-      if (!autoFixUndo.persisted || !promptId) return { persisted: false };
+      if (!autoFixUndo.persisted || !promptId) return { persisted: false, snap: autoFixUndo };
 
       const itemsPayload = prev.map((s, i) => ({
         id: s.id ?? null,
@@ -1054,10 +1060,23 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         items: itemsPayload as any,
       });
       if (error) throw error;
-      return { persisted: true };
+      return { persisted: true, snap: autoFixUndo };
     },
     onSuccess: (res) => {
+      // Arm Redo so the admin can re-apply the Auto-fix in one click before
+      // they touch anything else. postUndoItems = the items ref we just set
+      // via setItems(prev), which is the snapshot's `items` array.
+      if (res.snap) {
+        setAutoFixRedo({
+          items: res.snap.postFixItems,
+          postUndoItems: res.snap.items,
+          persisted: res.snap.persisted,
+          movedCount: res.snap.movedCount,
+          moves: res.snap.moves,
+        });
+      }
       setAutoFixUndo(null);
+      setUndoPreviewOpen(false);
       setLastUndoActivity({ kind: "applied", at: Date.now() });
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
@@ -1068,6 +1087,54 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       }
     },
     onError: (e: any) => toast.error(e.message ?? "Undo failed"),
+  });
+
+  // Redo: re-apply the Auto-fix that was just undone. Same payload shape as
+  // Auto-fix; re-arms Undo on success.
+  const redoAutoFix = useMutation({
+    mutationFn: async () => {
+      if (!autoFixRedo) return { persisted: false, snap: null as null | typeof autoFixRedo };
+      const next = autoFixRedo.items;
+      setItems(next);
+      if (!autoFixRedo.persisted || !promptId) return { persisted: false, snap: autoFixRedo };
+      const itemsPayload = next.map((s, i) => ({
+        id: s.id ?? null,
+        title: s.title || `Prompt ${i + 1}`,
+        content: s.content,
+        description: s.description || null,
+        ai_models: s.ai_models ?? [],
+        difficulty: s.difficulty || null,
+        notes: s.notes || null,
+      }));
+      const { error } = await supabase.rpc("sync_sub_prompts" as any, {
+        p_id: promptId,
+        items: itemsPayload as any,
+      });
+      if (error) throw error;
+      return { persisted: true, snap: autoFixRedo };
+    },
+    onSuccess: (res) => {
+      if (res.snap) {
+        setAutoFixUndo({
+          items: res.snap.postUndoItems,
+          postFixItems: res.snap.items,
+          persisted: res.snap.persisted,
+          movedCount: res.snap.movedCount,
+          moves: res.snap.moves,
+          expiresAt: Date.now() + UNDO_TIMEOUT_MS,
+        });
+      }
+      setAutoFixRedo(null);
+      setLastUndoActivity({ kind: "redone", at: Date.now() });
+      if (res.persisted) {
+        qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
+        refetchServerReport();
+        toast.success("Re-applied auto-fix");
+      } else {
+        toast.success("Re-applied locally");
+      }
+    },
+    onError: (e: any) => toast.error(e.message ?? "Redo failed"),
   });
 
 
