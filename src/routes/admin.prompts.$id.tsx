@@ -808,18 +808,35 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
   // sync_sub_prompts RPC the main Save button uses. Unsaved (no-id) items are
   // appended at the end, preserving their current rendered order.
   const qc = useQueryClient();
+  const [autoFixPending, setAutoFixPending] = useState(false);
+
+  // Preview of what auto-fix will change: returns the proposed order and the
+  // list of items whose rendered position would move. Computed without
+  // mutating state so we can show a confirmation prompt first.
+  const autoFixPreview = useMemo(() => {
+    const saved = items.filter((s) => s.id);
+    const unsaved = items.filter((s) => !s.id);
+    const sortedSaved = [...saved].sort((a, b) => {
+      const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
+      if (d !== 0) return d;
+      const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
+      if (c !== 0) return c;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    });
+    const proposed = [...sortedSaved, ...unsaved];
+    const moves: { title: string; from: number; to: number }[] = [];
+    proposed.forEach((s, to) => {
+      const from = items.findIndex((x) => x === s);
+      if (from !== to) {
+        moves.push({ title: s.title?.trim() || `Prompt ${to + 1}`, from, to });
+      }
+    });
+    return { proposed, moves };
+  }, [items]);
+
   const autoFix = useMutation({
     mutationFn: async () => {
-      const saved = items.filter((s) => s.id);
-      const unsaved = items.filter((s) => !s.id);
-      const sortedSaved = [...saved].sort((a, b) => {
-        const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
-        if (d !== 0) return d;
-        const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
-        if (c !== 0) return c;
-        return String(a.id ?? "").localeCompare(String(b.id ?? ""));
-      });
-      const next = [...sortedSaved, ...unsaved];
+      const next = autoFixPreview.proposed;
       setItems(next);
 
       if (!promptId) return { reordered: next.length, persisted: false };
@@ -842,6 +859,7 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
       return { reordered: next.length, persisted: true };
     },
     onSuccess: (res) => {
+      setAutoFixPending(false);
       if (res.persisted) {
         qc.invalidateQueries({ queryKey: ["edit-prompt", promptId] });
         refetchServerReport();
@@ -850,7 +868,10 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
         toast.success("Reordered locally — save the prompt to persist");
       }
     },
-    onError: (e: any) => toast.error(e.message ?? "Auto-fix failed"),
+    onError: (e: any) => {
+      setAutoFixPending(false);
+      toast.error(e.message ?? "Auto-fix failed");
+    },
   });
 
   return (
@@ -895,19 +916,68 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
                     Breakdown — which items caused issues
                   </summary>
                   <div className="space-y-2 p-2 text-[11px] text-muted-foreground">
-                    <div className="flex items-center justify-between gap-2 rounded border border-border bg-background/60 px-2 py-1.5">
-                      <div className="text-[11px] text-muted-foreground">
-                        Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
-                      </div>
-                      <button
-                        type="button"
-                        disabled={autoFix.isPending}
-                        onClick={() => autoFix.mutate()}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
-                      >
-                        {autoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                        Auto-fix order
-                      </button>
+                    <div className="rounded border border-border bg-background/60 px-2 py-1.5">
+                      {!autoFixPending ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[11px] text-muted-foreground">
+                            Recalculate <code className="font-mono">display_order</code> from server's deterministic sort and persist via <code className="font-mono">sync_sub_prompts</code>.
+                            {autoFixPreview.moves.length > 0 && (
+                              <span className="ml-1 text-foreground">
+                                {autoFixPreview.moves.length} item{autoFixPreview.moves.length === 1 ? "" : "s"} will move.
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={autoFix.isPending || autoFixPreview.moves.length === 0}
+                            onClick={() => setAutoFixPending(true)}
+                            title={autoFixPreview.moves.length === 0 ? "Nothing to reorder" : "Preview and confirm reorder"}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+                          >
+                            <Wand2 className="h-3 w-3" /> Auto-fix order
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="flex items-start gap-1.5 text-[11px] text-foreground">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
+                            <div>
+                              Confirm reorder: <span className="font-semibold">{autoFixPreview.moves.length}</span> item{autoFixPreview.moves.length === 1 ? "" : "s"} will move and the new <code className="font-mono">display_order</code> will be persisted immediately.
+                            </div>
+                          </div>
+                          {autoFixPreview.moves.length > 0 && (
+                            <ul className="max-h-32 overflow-auto rounded border border-border/60 bg-background/40 px-2 py-1 text-[10px] text-muted-foreground">
+                              {autoFixPreview.moves.slice(0, 8).map((m, i) => (
+                                <li key={`${m.from}-${m.to}-${i}`} className="font-mono">
+                                  "{m.title}" — #{m.from + 1} → #{m.to + 1}
+                                </li>
+                              ))}
+                              {autoFixPreview.moves.length > 8 && (
+                                <li className="italic">… and {autoFixPreview.moves.length - 8} more</li>
+                              )}
+                            </ul>
+                          )}
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={autoFix.isPending}
+                              onClick={() => setAutoFixPending(false)}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={autoFix.isPending}
+                              onClick={() => autoFix.mutate()}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/25 disabled:opacity-60"
+                            >
+                              {autoFix.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                              Confirm & save
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {fieldDiff.length > 0 && (
                       <div>
