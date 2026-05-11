@@ -312,7 +312,11 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
     await navigator.clipboard.writeText(custom ? buildContent() : content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-    await supabase.rpc("increment_copy_count", { p_id: promptId });
+    if (sub.id && sub.id !== promptId) {
+      await supabase.rpc("increment_sub_prompt_copy_count" as any, { s_id: sub.id } as any);
+    } else {
+      await supabase.rpc("increment_copy_count", { p_id: promptId });
+    }
     toast.success("Copied to clipboard");
   };
 
@@ -327,6 +331,11 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
           )}
           <h4 className="text-sm font-semibold truncate">{sub.title || `Prompt ${index + 1}`}</h4>
           <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">· ~{tokens} tok</span>
+          {typeof sub.copy_count === "number" && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+              · <Copy className="h-3 w-3" /> {sub.copy_count}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
