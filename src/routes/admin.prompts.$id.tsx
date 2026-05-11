@@ -665,6 +665,34 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
     update(i, { ai_models: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
   };
 
+  // Admin order-consistency check: verifies stored display_order is strictly
+  // increasing and matches a created_at tiebreaker sort. Reports gaps,
+  // duplicates, missing values, and current vs saved order mismatches.
+  const orderReport = useMemo(() => {
+    const saved = items.filter((s) => s.id); // only persisted rows
+    const missingOrder = saved.filter((s) => s.saved_display_order == null).length;
+    const missingCreated = saved.filter((s) => !s.saved_created_at).length;
+    const orders = saved.map((s) => s.saved_display_order ?? -1);
+    const dupes = orders.filter((v, i) => v !== -1 && orders.indexOf(v) !== i).length > 0;
+    const sortedBySaved = [...saved].sort((a, b) => {
+      const d = (a.saved_display_order ?? 0) - (b.saved_display_order ?? 0);
+      if (d !== 0) return d;
+      const c = String(a.saved_created_at ?? "").localeCompare(String(b.saved_created_at ?? ""));
+      if (c !== 0) return c;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    });
+    const renderedIds = saved.map((s) => s.id);
+    const sortedIds = sortedBySaved.map((s) => s.id);
+    const renderMismatch = renderedIds.some((id, i) => id !== sortedIds[i]);
+    let gaps = 0;
+    for (let i = 0; i < sortedBySaved.length; i++) {
+      if ((sortedBySaved[i].saved_display_order ?? -1) !== i) gaps++;
+    }
+    const hasIssue = dupes || renderMismatch || gaps > 0 || missingOrder > 0;
+    const unsaved = items.length - saved.length;
+    return { hasIssue, dupes, renderMismatch, gaps, missingOrder, missingCreated, unsaved, total: items.length };
+  }, [items]);
+
   return (
     <section className="mt-6 vault-card rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
@@ -676,6 +704,26 @@ function SubPromptsEditor({ items, setItems }: { items: SubPrompt[]; setItems: (
           <Plus className="h-3.5 w-3.5" /> Add sub-prompt
         </button>
       </div>
+
+      {items.length > 0 && (
+        <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${orderReport.hasIssue ? "border-amber-500/40 bg-amber-500/10 text-amber-500" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"}`}>
+          <div className="flex items-start gap-2">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <div className="space-y-0.5">
+              <div className="font-semibold">
+                Order check: {orderReport.hasIssue ? "needs save" : "consistent"} ({orderReport.total} item{orderReport.total === 1 ? "" : "s"}{orderReport.unsaved > 0 ? `, ${orderReport.unsaved} unsaved` : ""})
+              </div>
+              <ul className="text-[11px] opacity-90 list-disc pl-4">
+                <li>display_order gaps/mismatches: {orderReport.gaps}</li>
+                <li>duplicate display_order: {orderReport.dupes ? "yes" : "no"}</li>
+                <li>missing display_order: {orderReport.missingOrder}</li>
+                <li>missing created_at: {orderReport.missingCreated} (safe fallback to id applied)</li>
+                <li>current order vs DB: {orderReport.renderMismatch ? "differs — save to persist" : "matches"}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {items.length === 0 && (
         <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
