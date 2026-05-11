@@ -1683,7 +1683,31 @@ function SubPromptsEditor({ items, setItems, promptId }: { items: SubPrompt[]; s
 
 function NotesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const syncSource = useRef<"editor" | "preview" | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+
+  const ratio = (el: HTMLElement) => {
+    const max = el.scrollHeight - el.clientHeight;
+    return max > 0 ? el.scrollTop / max : 0;
+  };
+  const applyRatio = (el: HTMLElement, r: number) => {
+    const max = el.scrollHeight - el.clientHeight;
+    el.scrollTop = Math.max(0, Math.min(max, r * max));
+  };
+
+  const onEditorScroll: React.UIEventHandler<HTMLTextAreaElement> = (e) => {
+    if (!showPreview || !previewRef.current) return;
+    if (syncSource.current === "preview") { syncSource.current = null; return; }
+    syncSource.current = "editor";
+    applyRatio(previewRef.current, ratio(e.currentTarget));
+  };
+  const onPreviewScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+    if (!ref.current) return;
+    if (syncSource.current === "editor") { syncSource.current = null; return; }
+    syncSource.current = "preview";
+    applyRatio(ref.current, ratio(e.currentTarget));
+  };
 
   const apply = (
     mode: "wrap" | "linePrefix" | "block",
@@ -1816,11 +1840,16 @@ function NotesEditor({ value, onChange }: { value: string; onChange: (v: string)
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
+          onScroll={onEditorScroll}
           rows={showPreview ? 10 : 4}
           className="w-full bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none resize-y"
         />
         {showPreview && (
-          <div className="px-3 py-2 text-sm overflow-auto max-h-[400px] prose prose-invert prose-sm max-w-none prose-headings:font-semibold prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5">
+          <div
+            ref={previewRef}
+            onScroll={onPreviewScroll}
+            className="px-3 py-2 text-sm overflow-auto max-h-[400px] prose prose-invert prose-sm max-w-none prose-headings:font-semibold prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5"
+          >
             {value.trim() ? (
               <ReactMarkdown
                 skipHtml
