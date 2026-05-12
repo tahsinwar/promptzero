@@ -10,6 +10,7 @@ import {
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
 import { applyPromptVisibility } from "@/lib/prompt-visibility";
+import { useAuth } from "@/hooks/use-auth";
 
 const STALE = 5 * 60 * 1000;
 
@@ -79,7 +80,9 @@ function HomePage() {
     }});
 
   const sort = search.sort ?? "newest";
-  const showLocked = search.locked === "1";
+  const { isAdmin } = useAuth();
+  // Public users can never reveal locked prompts; only admins can flip the toggle.
+  const showLocked = isAdmin && search.locked === "1";
   const [view, setView] = useViewMode("grid");
 
   // Settings (for site_name/tagline + default_pin)
