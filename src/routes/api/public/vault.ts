@@ -1,0 +1,129 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+type SortKey = "newest" | "most_copied" | "highest_rated" | "trending";
+
+const promptSelect = "id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)";
+
+function json(data: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+  });
+}
+
+async function getSettings() {
+  const { data } = await supabaseAdmin.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
+  return (data?.settings ?? {}) as Record<string, unknown>;
+}
+
+async function getPromptList(params: { q?: string; ai?: string; cat?: string; diff?: string; sort?: SortKey; featuredOnly?: boolean; limit?: number }) {
+  let q = supabaseAdmin.from("prompts").select(promptSelect).eq("is_published", true);
+
+  if (params.featuredOnly) q = q.eq("is_featured", true);
+  if (params.q) q = q.or(`title.ilike.%${params.q}%,description.ilike.%${params.q}%`);
+  if (params.cat) q = q.eq("category_id", params.cat);
+  if (params.diff) q = q.eq("difficulty", params.diff);
+  if (params.ai) q = q.contains("ai_models", [params.ai]);
+
+  switch (params.sort) {
+    case "most_copied": q = q.order("copy_count", { ascending: false }); break;
+    case "highest_rated": q = q.order("rating_avg", { ascending: false }); break;
+    case "trending": q = q.order("view_count", { ascending: false }); break;
+    default: q = q.order(params.featuredOnly ? "view_count" : "created_at", { ascending: false });
+  }
+
+  const { data, error } = await q.limit(params.limit ?? 60);
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function getHome(request: Request) {
+  const url = new URL(request.url);
+  const sort = url.searchParams.get("sort") as SortKey | null;
+  const [{ data: stats }, { data: categories, error: categoriesError }, settings, featured, prompts] = await Promise.all([
+    supabaseAdmin.rpc("get_home_stats" as any),
+    supabaseAdmin.from("categories").select("id,name,slug,color").order("name"),
+    getSettings(),
+    getPromptList({ featuredOnly: true, limit: 8 }),
+    getPromptList({
+      q: url.searchParams.get("q") || undefined,
+      ai: url.searchParams.get("ai") || undefined,
+      cat: url.searchParams.get("cat") || undefined,
+      diff: url.searchParams.get("diff") || undefined,
+      sort: sort || "newest",
+      limit: 60,
+    }),
+  ]);
+
+  if (categoriesError) throw categoriesError;
+  const statData = (stats ?? {}) as { prompts?: number; tools?: number; copies?: number };
+  return json({
+    settings,
+    stats: { prompts: statData.prompts ?? 0, tools: statData.tools ?? 0, copies: statData.copies ?? 0 },
+    categories: categories ?? [],
+    featured,
+    prompts,
+  });
+}
+
+async function getBrowse() {
+  const [settings, { data: categories, error: categoriesError }, prompts] = await Promise.all([
+    getSettings(),
+    supabaseAdmin.from("categories").select("*").order("name"),
+    getPromptList({ limit: 1000 }),
+  ]);
+  if (categoriesError) throw categoriesError;
+  return json({ settings, categories: categories ?? [], prompts });
+}
+
+async function getDetail(request: Request) {
+  const slug = new URL(request.url).searchParams.get("slug");
+  if (!slug) return json({ error: "Missing slug" }, { status: 400 });
+  const { data, error } = await supabaseAdmin.rpc("get_prompt_detail" as any, { p_slug: slug } as any);
+  if (error) throw error;
+  if (!data) return json(null);
+  const d = data as any;
+  return json({
+    prompt: d.prompt,
+    comments: d.comments ?? [],
+    visitorQs: d.visitorQs ?? [],
+    versionCount: d.versionCount ?? 1,
+    ratings: d.ratings ?? [],
+  });
+}
+
+export const Route = createFileRoute("/api/public/vault")({
+  server: {
+    handlers: {
+      GET: async ({ request }) => {
+        try {
+          const mode = new URL(request.url).searchParams.get("mode");
+          if (mode === "home") return getHome(request);
+          if (mode === "browse") return getBrowse();
+          if (mode === "detail") return getDetail(request);
+          return json({ error: "Invalid mode" }, { status: 400 });
+        } catch (error) {
+          console.error("[public-vault]", error);
+          return json({ error: "Could not load vault data" }, { status: 500 });
+        }
+      },
+      POST: async ({ request }) => {
+        const body = z.object({
+          action: z.enum(["increment_view", "increment_copy"]),
+          slug: z.string().optional(),
+          id: z.string().uuid().optional(),
+        }).parse(await request.json());
+
+        if (body.action === "increment_view" && body.slug) {
+          await supabaseAdmin.rpc("increment_view_count", { p_slug: body.slug });
+        }
+        if (body.action === "increment_copy" && body.id) {
+          await supabaseAdmin.rpc("increment_copy_count", { p_id: body.id });
+        }
+        return json({ ok: true });
+      },
+    },
+  },
+});
