@@ -180,8 +180,9 @@ function PromptDetail() {
         promptId={prompt.id}
         pinHash={prompt.pin_hash}
         fallbackPin={settings?.default_pin ?? "00000"}
-        open={!!prompt.is_locked && !unlocked}
-        onUnlock={() => setUnlocked(true)}
+        open={!!prompt.is_locked && !unlocked && pinModalOpen}
+        onUnlock={() => { setUnlocked(true); setPinModalOpen(false); }}
+        onClose={() => setPinModalOpen(false)}
       />
       <ShareModal open={shareOpen} url={typeof window !== "undefined" ? window.location.href : ""} title={prompt.title} onClose={() => setShareOpen(false)} />
 
