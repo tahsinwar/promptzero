@@ -14,7 +14,7 @@ import { getSessionId } from "@/lib/slug";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
-import { getPublicPromptDetail, getPublicSettings, recordPublicPromptCopy, recordPublicPromptView, recordPublicSubPromptCopy } from "@/lib/public-vault-api";
+import { getPublicPromptDetail, getPublicRelated, getPublicSettings, publicVaultPost, recordPublicPromptCopy, recordPublicPromptView, recordPublicSubPromptCopy } from "@/lib/public-vault-api";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
