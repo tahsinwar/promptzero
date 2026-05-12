@@ -14,6 +14,7 @@ import { getSessionId } from "@/lib/slug";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
+import { getPublicPromptDetail, getPublicRelated, getPublicSettings, publicVaultPost, recordPublicPromptCopy, recordPublicPromptView, recordPublicSubPromptCopy } from "@/lib/public-vault-api";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
@@ -55,32 +56,13 @@ function PromptDetail() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["prompt-full", slug],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      // Single RPC: prompt + nested rels + comments + visitor Qs + version count + ratings
-      const { data: payload, error } = await supabase.rpc(
-        "get_prompt_detail" as any,
-        { p_slug: slug } as any,
-      );
-      if (error) throw error;
-      if (!payload) return null;
-      const d = payload as any;
-      return {
-        prompt: d.prompt,
-        comments: d.comments ?? [],
-        visitorQs: d.visitorQs ?? [],
-        versionCount: d.versionCount ?? 1,
-        ratings: d.ratings ?? [],
-      };
-    },
+    queryFn: () => getPublicPromptDetail(slug),
   });
 
   const { data: settings } = useQuery({
     queryKey: ["admin-settings-pin"],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
-      return (data?.settings ?? {}) as any;
-    },
+    queryFn: getPublicSettings,
   });
 
   const prompt = data?.prompt;
@@ -91,7 +73,7 @@ function PromptDetail() {
     if (!prompt) return;
     const key = `viewed_${slug}`;
     if (!sessionStorage.getItem(key)) {
-      supabase.rpc("increment_view_count", { p_slug: slug });
+      void recordPublicPromptView(slug);
       sessionStorage.setItem(key, "1");
     }
   }, [prompt, slug]);
@@ -126,8 +108,8 @@ function PromptDetail() {
             <div className="h-4 w-full rounded bg-muted/40 animate-pulse" />
             <div className="h-4 w-2/3 rounded bg-muted/40 animate-pulse" />
             <div className="vault-card rounded-2xl p-6 space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+              {[82, 94, 76, 88, 68, 91].map((width, i) => (
+                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${width}%` }} />
               ))}
             </div>
           </div>
@@ -321,9 +303,9 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
     if (sub.id && sub.id !== promptId) {
-      await supabase.rpc("increment_sub_prompt_copy_count" as any, { s_id: sub.id } as any);
+      await recordPublicSubPromptCopy(sub.id);
     } else {
-      await supabase.rpc("increment_copy_count", { p_id: promptId });
+      await recordPublicPromptCopy(promptId);
     }
     toast.success("Copied to clipboard");
   };
@@ -493,7 +475,7 @@ function VideosTab({ videos }: { videos: any[] }) {
 /* ---------- Links ---------- */
 function LinksTab({ links }: { links: any[] }) {
   if (links.length === 0) return <p className="text-sm text-muted-foreground">No links added.</p>;
-  const onClick = (id: string) => { supabase.rpc("increment_link_clicks" as any, { l_id: id } as any); };
+  const onClick = (id: string) => { void publicVaultPost({ action: "increment_link", id }); };
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {links.map((l) => {
@@ -540,7 +522,7 @@ function QATab({ promptId, qa, visitorQs, onSubmitted }: { promptId: string; qa:
     e.preventDefault();
     if (!name.trim() || !question.trim()) return;
     setSubmitting(true);
-    const { error } = await supabase.from("visitor_questions").insert({ prompt_id: promptId, author_name: name.trim().slice(0, 100), question: question.trim().slice(0, 1000) });
+    const error = await publicVaultPost({ action: "ask_question", promptId, name, question }).then(() => null).catch((e) => e as Error);
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
     setDone(true); setName(""); setQuestion("");
@@ -592,10 +574,7 @@ function CommentsTab({ promptId, comments, autoApprove, onSubmitted }: { promptI
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !content.trim()) return;
-    const { error } = await supabase.from("comments").insert({
-      prompt_id: promptId, author_name: name.trim().slice(0, 100),
-      content: content.trim().slice(0, 2000), is_approved: autoApprove,
-    });
+    const error = await publicVaultPost({ action: "add_comment", promptId, name, content, autoApprove }).then(() => null).catch((e) => e as Error);
     if (error) { toast.error(error.message); return; }
     setName(""); setContent(""); setDone(true);
     toast.success(autoApprove ? "Comment posted" : "Comment pending approval");
@@ -634,17 +613,13 @@ function CommentItem({ comment, replies, promptId, autoApprove, onSubmitted }: {
   const [content, setContent] = useState("");
 
   const upvote = async () => {
-    await supabase.rpc("increment_comment_upvote", { c_id: comment.id });
+    await publicVaultPost({ action: "increment_comment_upvote", id: comment.id });
     onSubmitted();
   };
   const submitReply = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !content.trim()) return;
-    const { error } = await supabase.from("comments").insert({
-      prompt_id: promptId, parent_id: comment.id,
-      author_name: name.trim().slice(0, 100), content: content.trim().slice(0, 2000),
-      is_approved: autoApprove,
-    });
+    const error = await publicVaultPost({ action: "add_comment", promptId, parentId: comment.id, name, content, autoApprove }).then(() => null).catch((e) => e as Error);
     if (error) { toast.error(error.message); return; }
     setName(""); setContent(""); setReplyOpen(false);
     toast.success(autoApprove ? "Reply posted" : "Reply pending approval");
@@ -702,8 +677,7 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
   const rate = useMutation({
     mutationFn: async (value: 1 | -1) => {
       const session_id = getSessionId();
-      const { error } = await supabase.from("ratings").upsert({ prompt_id: prompt.id, value, session_id }, { onConflict: "prompt_id,session_id" });
-      if (error) throw error;
+      await publicVaultPost({ action: "rate", promptId: prompt.id, value, sessionId: session_id });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["prompt-full", slug] }); toast.success("Thanks!"); },
     onError: (e: any) => toast.error(e.message),
@@ -714,18 +688,7 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
     queryKey: ["related", prompt.id, tagIds],
     enabled: tagIds.length > 0,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data } = await supabase.from("prompt_tags").select("prompts(id,slug,title,copy_count,is_published)").in("tag_id", tagIds);
-      const seen = new Set<string>();
-      const out: any[] = [];
-      for (const r of (data ?? []) as any[]) {
-        const p = r.prompts;
-        if (p && p.is_published && p.id !== prompt.id && !seen.has(p.id)) {
-          seen.add(p.id); out.push(p);
-        }
-      }
-      return out.sort((a, b) => b.copy_count - a.copy_count).slice(0, 4);
-    },
+    queryFn: () => getPublicRelated(prompt.id, tagIds),
   });
 
   return (

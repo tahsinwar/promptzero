@@ -2,13 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useEffect, useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles, Search, Bot, Image as ImageIcon, Video, Music, ChevronDown,
   Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu,
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
+import { getPublicHome } from "@/lib/public-vault-api";
 
 const STALE = 5 * 60 * 1000;
 
@@ -78,82 +78,20 @@ function HomePage() {
   const sort = search.sort ?? "newest";
   const [view, setView] = useViewMode("grid");
 
-  // Settings (for site_name/tagline + default_pin)
-  const { data: settingsData } = useQuery({
-    queryKey: ["site-settings"],
-    queryFn: async () => {
-      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
-      return (data?.settings ?? {}) as { site_name?: string; tagline?: string; default_pin?: string };
-    },
+  const { data: homeData, isLoading: loadingPrompts } = useQuery({
+    queryKey: ["public-home", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort }],
+    queryFn: () => getPublicHome({ q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort }),
     staleTime: STALE,
   });
+
+  const settingsData = homeData?.settings;
   const siteName = settingsData?.site_name || "Prompt Vault";
   const tagline = settingsData?.tagline || "Best AI Prompts Collection";
   const defaultPin = settingsData?.default_pin || "00000";
-
-  // Stats
-  const { data: stats } = useQuery({
-    queryKey: ["home-stats"],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_home_stats" as any);
-      if (error) throw error;
-      const d = (data ?? {}) as { prompts?: number; tools?: number; copies?: number };
-      return { prompts: d.prompts ?? 0, tools: d.tools ?? 0, copies: d.copies ?? 0 };
-    },
-    staleTime: STALE,
-  });
-
-  // Categories
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id,name,slug,color").order("name");
-      return data ?? [];
-    },
-    staleTime: STALE,
-  });
-
-  // Featured
-  const { data: featured } = useQuery({
-    queryKey: ["featured-prompts"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("prompts")
-        .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true).eq("is_featured", true)
-        .order("view_count", { ascending: false }).limit(8);
-      return (data ?? []) as unknown as PromptListItem[];
-    },
-    staleTime: STALE,
-  });
-
-  // All prompts (filtered + sorted)
-  const { data: prompts, isLoading: loadingPrompts } = useQuery({
-    queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort }],
-    queryFn: async () => {
-      let q = supabase
-        .from("prompts")
-        .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true);
-
-      if (search.q) q = q.or(`title.ilike.%${search.q}%,description.ilike.%${search.q}%`);
-      if (search.cat) q = q.eq("category_id", search.cat);
-      if (search.diff) q = q.eq("difficulty", search.diff);
-      if (search.ai) q = q.contains("ai_models", [search.ai]);
-
-      switch (sort) {
-        case "most_copied": q = q.order("copy_count", { ascending: false }); break;
-        case "highest_rated": q = q.order("rating_avg", { ascending: false }); break;
-        case "trending": q = q.order("view_count", { ascending: false }); break;
-        default: q = q.order("created_at", { ascending: false });
-      }
-
-      const { data, error } = await q.limit(60);
-      if (error) throw error;
-      return (data ?? []) as unknown as PromptListItem[];
-    },
-    staleTime: STALE,
-  });
+  const stats = homeData?.stats;
+  const categories = homeData?.categories;
+  const featured = homeData?.featured;
+  const prompts = homeData?.prompts as PromptListItem[] | undefined;
 
   // Hero search local state mirrors URL
   const [heroQ, setHeroQ] = useState(search.q ?? "");

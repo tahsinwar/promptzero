@@ -3,10 +3,10 @@ import { Bookmark, Copy, Check, Lock, Star, Eye, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useBookmarks } from "@/hooks/use-bookmarks";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PinModal } from "./pin-modal";
 import { useQueryClient } from "@tanstack/react-query";
+import { getPublicPromptDetail, recordPublicPromptCopy } from "@/lib/public-vault-api";
 
 export type PromptListItem = {
   id: string;
@@ -27,7 +27,7 @@ export type PromptListItem = {
 
 async function copyPrompt(p: PromptListItem) {
   await navigator.clipboard.writeText(p.content);
-  await supabase.rpc("increment_copy_count", { p_id: p.id });
+  await recordPublicPromptCopy(p.id);
 }
 
 // Warm the react-query cache with the detail RPC on hover/focus so the
@@ -38,22 +38,7 @@ function usePrefetchPromptDetail() {
     qc.prefetchQuery({
       queryKey: ["prompt-full", slug],
       staleTime: 5 * 60 * 1000,
-      queryFn: async () => {
-        const { data: payload, error } = await supabase.rpc(
-          "get_prompt_detail" as any,
-          { p_slug: slug } as any,
-        );
-        if (error) throw error;
-        if (!payload) return null;
-        const d = payload as any;
-        return {
-          prompt: d.prompt,
-          comments: d.comments ?? [],
-          visitorQs: d.visitorQs ?? [],
-          versionCount: d.versionCount ?? 1,
-          ratings: d.ratings ?? [],
-        };
-      },
+      queryFn: () => getPublicPromptDetail(slug),
     });
 }
 
