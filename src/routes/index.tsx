@@ -78,6 +78,7 @@ function HomePage() {
     }});
 
   const sort = search.sort ?? "newest";
+  const showLocked = search.locked === "1";
   const [view, setView] = useViewMode("grid");
 
   // Settings (for site_name/tagline + default_pin)
@@ -117,14 +118,14 @@ function HomePage() {
 
   // Featured
   const { data: featured } = useQuery({
-    queryKey: ["featured-prompts"],
+    queryKey: ["featured-prompts", { showLocked }],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true).eq("is_featured", true)
-        .eq("is_locked", false).is("pin_hash", null)
-        .order("view_count", { ascending: false }).limit(8);
+        .eq("is_published", true).eq("is_featured", true);
+      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
+      const { data } = await q.order("view_count", { ascending: false }).limit(8);
       return (data ?? []) as unknown as PromptListItem[];
     },
     staleTime: STALE,
@@ -132,13 +133,13 @@ function HomePage() {
 
   // All prompts (filtered + sorted)
   const { data: prompts, isLoading: loadingPrompts } = useQuery({
-    queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort }],
+    queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort, showLocked }],
     queryFn: async () => {
       let q = supabase
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
         .eq("is_published", true);
-      q = q.eq("is_locked", false).is("pin_hash", null);
+      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
 
       if (search.q) q = q.or(`title.ilike.%${search.q}%,description.ilike.%${search.q}%`);
       if (search.cat) q = q.eq("category_id", search.cat);
