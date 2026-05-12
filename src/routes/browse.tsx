@@ -6,6 +6,7 @@ import { Search, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { PromptCard, type PromptListItem } from "@/components/prompt-card";
 import { applyPromptVisibility, isPromptVisible } from "@/lib/prompt-visibility";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/browse")({
   component: Browse,
@@ -13,10 +14,12 @@ export const Route = createFileRoute("/browse")({
 });
 
 function Browse() {
+  const { isAdmin } = useAuth();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
-  const [showLocked, setShowLocked] = useState(false);
+  const [showLockedRaw, setShowLocked] = useState(false);
+  const showLocked = isAdmin && showLockedRaw;
 
   const { data: cats } = useQuery({
     queryKey: ["categories"],
@@ -24,12 +27,13 @@ function Browse() {
   });
 
   const { data: prompts } = useQuery({
-    queryKey: ["all-prompts"],
+    queryKey: ["all-prompts", { admin: isAdmin }],
     queryFn: async () => {
-      // Fetch with locked included; client-side toggle filters them.
+      // Admins fetch with locked included so the toggle can reveal them.
+      // Public users only ever receive visible rows from the network.
       const q = applyPromptVisibility(
         supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)"),
-        { includeLocked: true },
+        { includeLocked: isAdmin },
       );
       return (await q.order("created_at", { ascending: false })).data ?? [];
     },
@@ -81,19 +85,24 @@ function Browse() {
           {(["beginner", "intermediate", "advanced"] as const).map((d) => (
             <Chip key={d} active={diff === d} onClick={() => setDiff(diff === d ? null : d)}>{d}</Chip>
           ))}
-          <span className="mx-1 self-center h-5 w-px bg-border" />
-          <button
-            onClick={() => setShowLocked((v) => !v)}
-            aria-pressed={showLocked}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
-              showLocked
-                ? "bg-primary/15 border-primary/40 text-primary"
-                : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Lock className="h-3.5 w-3.5" />
-            {showLocked ? "Showing locked" : "Hide locked"}
-          </button>
+          {isAdmin && (
+            <>
+              <span className="mx-1 self-center h-5 w-px bg-border" />
+              <button
+                onClick={() => setShowLocked((v) => !v)}
+                aria-pressed={showLocked}
+                title="Admin-only: preview locked prompts"
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  showLocked
+                    ? "bg-accent/15 border-accent/50 text-accent"
+                    : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Lock className="h-3.5 w-3.5" />
+                {showLocked ? "Admin: showing locked" : "Admin: preview locked"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import {
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
 import { applyPromptVisibility } from "@/lib/prompt-visibility";
+import { useAuth } from "@/hooks/use-auth";
 
 const STALE = 5 * 60 * 1000;
 
@@ -79,7 +80,9 @@ function HomePage() {
     }});
 
   const sort = search.sort ?? "newest";
-  const showLocked = search.locked === "1";
+  const { isAdmin } = useAuth();
+  // Public users can never reveal locked prompts; only admins can flip the toggle.
+  const showLocked = isAdmin && search.locked === "1";
   const [view, setView] = useViewMode("grid");
 
   // Settings (for site_name/tagline + default_pin)
@@ -318,20 +321,22 @@ function HomePage() {
             onChange={(v) => setParams({ sort: v === "newest" ? undefined : (v as SortKey) })}
             options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
           />
-          <button
-            type="button"
-            onClick={() => setParams({ locked: showLocked ? undefined : "1" })}
-            aria-pressed={showLocked}
-            title={showLocked ? "Hide locked prompts" : "Show locked prompts"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap ${
-              showLocked
-                ? "border-primary/40 bg-primary/15 text-primary"
-                : "border-border bg-input/40 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Lock className="h-4 w-4" />
-            {showLocked ? "Showing locked" : "Hide locked"}
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setParams({ locked: showLocked ? undefined : "1" })}
+              aria-pressed={showLocked}
+              title={showLocked ? "Hide locked prompts" : "Preview locked prompts (admin)"}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap ${
+                showLocked
+                  ? "border-accent/50 bg-accent/15 text-accent"
+                  : "border-border bg-input/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Lock className="h-4 w-4" />
+              {showLocked ? "Admin: showing locked" : "Admin: preview locked"}
+            </button>
+          )}
         </div>
 
         {/* Results */}
