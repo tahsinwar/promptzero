@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles, Search, Bot, Image as ImageIcon, Video, Music, ChevronDown,
-  Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu,
+  Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu, Lock,
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
@@ -51,6 +51,7 @@ type HomeSearch = {
   cat?: string;
   diff?: Difficulty;
   sort?: SortKey;
+  locked?: "1";
 };
 
 export const Route = createFileRoute("/")({
@@ -61,6 +62,7 @@ export const Route = createFileRoute("/")({
     cat: typeof s.cat === "string" && s.cat ? s.cat : undefined,
     diff: DIFFICULTIES.includes(s.diff as Difficulty) ? (s.diff as Difficulty) : undefined,
     sort: SORTS.some((x) => x.key === s.sort) ? (s.sort as SortKey) : undefined,
+    locked: s.locked === "1" ? "1" : undefined,
   }),
   head: () => ({ meta: [{ title: "Prompt Vault — Best AI Prompts Collection" }] }),
 });
@@ -76,6 +78,7 @@ function HomePage() {
     }});
 
   const sort = search.sort ?? "newest";
+  const showLocked = search.locked === "1";
   const [view, setView] = useViewMode("grid");
 
   // Settings (for site_name/tagline + default_pin)
@@ -115,14 +118,14 @@ function HomePage() {
 
   // Featured
   const { data: featured } = useQuery({
-    queryKey: ["featured-prompts"],
+    queryKey: ["featured-prompts", { showLocked }],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true).eq("is_featured", true)
-        .eq("is_locked", false).is("pin_hash", null)
-        .order("view_count", { ascending: false }).limit(8);
+        .eq("is_published", true).eq("is_featured", true);
+      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
+      const { data } = await q.order("view_count", { ascending: false }).limit(8);
       return (data ?? []) as unknown as PromptListItem[];
     },
     staleTime: STALE,
@@ -130,13 +133,13 @@ function HomePage() {
 
   // All prompts (filtered + sorted)
   const { data: prompts, isLoading: loadingPrompts } = useQuery({
-    queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort }],
+    queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort, showLocked }],
     queryFn: async () => {
       let q = supabase
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
         .eq("is_published", true);
-      q = q.eq("is_locked", false).is("pin_hash", null);
+      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
 
       if (search.q) q = q.or(`title.ilike.%${search.q}%,description.ilike.%${search.q}%`);
       if (search.cat) q = q.eq("category_id", search.cat);
@@ -285,7 +288,7 @@ function HomePage() {
         </div>
 
         {/* Filter bar */}
-        <div className="vault-card rounded-xl p-4 mb-6 grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+        <div className="vault-card rounded-xl p-4 mb-6 grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
           <label className="relative block">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -315,6 +318,20 @@ function HomePage() {
             onChange={(v) => setParams({ sort: v === "newest" ? undefined : (v as SortKey) })}
             options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
           />
+          <button
+            type="button"
+            onClick={() => setParams({ locked: showLocked ? undefined : "1" })}
+            aria-pressed={showLocked}
+            title={showLocked ? "Hide locked prompts" : "Show locked prompts"}
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap ${
+              showLocked
+                ? "border-primary/40 bg-primary/15 text-primary"
+                : "border-border bg-input/40 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Lock className="h-4 w-4" />
+            {showLocked ? "Showing locked" : "Hide locked"}
+          </button>
         </div>
 
         {/* Results */}
