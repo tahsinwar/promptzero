@@ -121,6 +121,7 @@ function HomePage() {
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
         .eq("is_published", true).eq("is_featured", true)
+        .eq("is_locked", false).is("pin_hash", null)
         .order("view_count", { ascending: false }).limit(8);
       return (data ?? []) as unknown as PromptListItem[];
     },
@@ -135,6 +136,7 @@ function HomePage() {
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
         .eq("is_published", true);
+      q = q.eq("is_locked", false).is("pin_hash", null);
 
       if (search.q) q = q.or(`title.ilike.%${search.q}%,description.ilike.%${search.q}%`);
       if (search.cat) q = q.eq("category_id", search.cat);
