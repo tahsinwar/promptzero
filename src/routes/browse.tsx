@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Search } from "lucide-react";
+import { Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { PromptCard, type PromptListItem } from "@/components/prompt-card";
 
@@ -15,6 +16,7 @@ function Browse() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
+  const [showLocked, setShowLocked] = useState(false);
 
   const { data: cats } = useQuery({
     queryKey: ["categories"],
@@ -23,7 +25,7 @@ function Browse() {
 
   const { data: prompts } = useQuery({
     queryKey: ["all-prompts"],
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).eq("is_locked", false).is("pin_hash", null).order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
   });
 
   const { data: settingsData } = useQuery({
@@ -38,6 +40,8 @@ function Browse() {
   const filtered = useMemo(() => {
     if (!prompts) return [];
     return prompts.filter((p: any) => {
+      const locked = !!p.is_locked || !!p.pin_hash;
+      if (!showLocked && locked) return false;
       if (cat && p.category_id !== cat) return false;
       if (diff && p.difficulty !== diff) return false;
       if (q) {
@@ -46,7 +50,7 @@ function Browse() {
       }
       return true;
     });
-  }, [prompts, q, cat, diff]);
+  }, [prompts, q, cat, diff, showLocked]);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
@@ -71,6 +75,19 @@ function Browse() {
           {(["beginner", "intermediate", "advanced"] as const).map((d) => (
             <Chip key={d} active={diff === d} onClick={() => setDiff(diff === d ? null : d)}>{d}</Chip>
           ))}
+          <span className="mx-1 self-center h-5 w-px bg-border" />
+          <button
+            onClick={() => setShowLocked((v) => !v)}
+            aria-pressed={showLocked}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+              showLocked
+                ? "bg-primary/15 border-primary/40 text-primary"
+                : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Lock className="h-3.5 w-3.5" />
+            {showLocked ? "Showing locked" : "Hide locked"}
+          </button>
         </div>
       </div>
 
