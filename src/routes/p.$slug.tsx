@@ -14,6 +14,7 @@ import { getSessionId } from "@/lib/slug";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
+import { getPublicPromptDetail, getPublicSettings, recordPublicPromptCopy, recordPublicPromptView, recordPublicSubPromptCopy } from "@/lib/public-vault-api";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
@@ -55,32 +56,13 @@ function PromptDetail() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["prompt-full", slug],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      // Single RPC: prompt + nested rels + comments + visitor Qs + version count + ratings
-      const { data: payload, error } = await supabase.rpc(
-        "get_prompt_detail" as any,
-        { p_slug: slug } as any,
-      );
-      if (error) throw error;
-      if (!payload) return null;
-      const d = payload as any;
-      return {
-        prompt: d.prompt,
-        comments: d.comments ?? [],
-        visitorQs: d.visitorQs ?? [],
-        versionCount: d.versionCount ?? 1,
-        ratings: d.ratings ?? [],
-      };
-    },
+    queryFn: () => getPublicPromptDetail(slug),
   });
 
   const { data: settings } = useQuery({
     queryKey: ["admin-settings-pin"],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
-      return (data?.settings ?? {}) as any;
-    },
+    queryFn: getPublicSettings,
   });
 
   const prompt = data?.prompt;
@@ -91,7 +73,7 @@ function PromptDetail() {
     if (!prompt) return;
     const key = `viewed_${slug}`;
     if (!sessionStorage.getItem(key)) {
-      supabase.rpc("increment_view_count", { p_slug: slug });
+      void recordPublicPromptView(slug);
       sessionStorage.setItem(key, "1");
     }
   }, [prompt, slug]);
@@ -126,8 +108,8 @@ function PromptDetail() {
             <div className="h-4 w-full rounded bg-muted/40 animate-pulse" />
             <div className="h-4 w-2/3 rounded bg-muted/40 animate-pulse" />
             <div className="vault-card rounded-2xl p-6 space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+              {[82, 94, 76, 88, 68, 91].map((width, i) => (
+                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${width}%` }} />
               ))}
             </div>
           </div>
