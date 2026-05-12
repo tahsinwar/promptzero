@@ -164,12 +164,13 @@ export const Route = createFileRoute("/api/public/vault")({
           await supabaseAdmin.from("visitor_questions").insert({ prompt_id: body.promptId, author_name: body.name.trim().slice(0, 100), question: body.question.trim().slice(0, 1000) });
         }
         if (body.action === "add_comment" && body.promptId && body.name && body.content) {
+          const settings = await getSettings();
           await supabaseAdmin.from("comments").insert({
             prompt_id: body.promptId,
             parent_id: body.parentId,
             author_name: body.name.trim().slice(0, 100),
             content: body.content.trim().slice(0, 2000),
-            is_approved: !!body.autoApprove,
+            is_approved: settings.comment_auto_approve === true,
           });
         }
         if (body.action === "rate" && body.promptId && body.value && body.sessionId) {
