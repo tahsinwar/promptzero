@@ -23,7 +23,7 @@ function Browse() {
 
   const { data: prompts } = useQuery({
     queryKey: ["all-prompts"],
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).eq("is_locked", false).is("pin_hash", null).order("created_at", { ascending: false })).data ?? [],
   });
 
   const { data: settingsData } = useQuery({
