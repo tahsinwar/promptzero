@@ -24,6 +24,7 @@ import { Route as AdminDeployRouteImport } from './routes/admin.deploy'
 import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminPromptsIndexRouteImport } from './routes/admin.prompts.index'
+import { Route as ApiPublicVaultRouteImport } from './routes/api.public.vault'
 import { Route as AdminPromptsIdRouteImport } from './routes/admin.prompts.$id'
 
 const SavedRoute = SavedRouteImport.update({
@@ -101,6 +102,11 @@ const AdminPromptsIndexRoute = AdminPromptsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminPromptsRoute,
 } as any)
+const ApiPublicVaultRoute = ApiPublicVaultRouteImport.update({
+  id: '/api/public/vault',
+  path: '/api/public/vault',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPromptsIdRoute = AdminPromptsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/s/$code': typeof SCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/api/public/vault': typeof ApiPublicVaultRoute
   '/admin/prompts/': typeof AdminPromptsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/s/$code': typeof SCodeRoute
   '/admin': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/api/public/vault': typeof ApiPublicVaultRoute
   '/admin/prompts': typeof AdminPromptsIndexRoute
 }
 export interface FileRoutesById {
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/s/$code': typeof SCodeRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/prompts/$id': typeof AdminPromptsIdRoute
+  '/api/public/vault': typeof ApiPublicVaultRoute
   '/admin/prompts/': typeof AdminPromptsIndexRoute
 }
 export interface FileRouteTypes {
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/s/$code'
     | '/admin/'
     | '/admin/prompts/$id'
+    | '/api/public/vault'
     | '/admin/prompts/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/s/$code'
     | '/admin'
     | '/admin/prompts/$id'
+    | '/api/public/vault'
     | '/admin/prompts'
   id:
     | '__root__'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/s/$code'
     | '/admin/'
     | '/admin/prompts/$id'
+    | '/api/public/vault'
     | '/admin/prompts/'
   fileRoutesById: FileRoutesById
 }
@@ -224,6 +236,7 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   PromptsSlugRoute: typeof PromptsSlugRoute
   SCodeRoute: typeof SCodeRoute
+  ApiPublicVaultRoute: typeof ApiPublicVaultRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPromptsIndexRouteImport
       parentRoute: typeof AdminPromptsRoute
     }
+    '/api/public/vault': {
+      id: '/api/public/vault'
+      path: '/api/public/vault'
+      fullPath: '/api/public/vault'
+      preLoaderRoute: typeof ApiPublicVaultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/prompts/$id': {
       id: '/admin/prompts/$id'
       path: '/$id'
@@ -386,7 +406,18 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   PromptsSlugRoute: PromptsSlugRoute,
   SCodeRoute: SCodeRoute,
+  ApiPublicVaultRoute: ApiPublicVaultRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
