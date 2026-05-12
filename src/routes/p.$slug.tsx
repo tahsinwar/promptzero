@@ -220,28 +220,11 @@ function PromptDetail() {
             </div>
           </header>
 
-          {/* Locked CTA */}
-          {prompt.is_locked && !unlocked && (
-            <div className="mt-6 vault-card rounded-2xl p-5 sm:p-6 border border-primary/30 bg-primary/5 print:hidden">
-              <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/15 ring-1 ring-primary/30 shrink-0">
-                  <Lock className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base sm:text-lg font-bold">This prompt is locked</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Enter the 5-digit PIN to view the full prompt content, copy it, and access all sub-prompts.</p>
-                </div>
-                <button
-                  onClick={() => setPinModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity shrink-0"
-                >
-                  <Lock className="h-4 w-4" /> Enter PIN to unlock
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Tabs */}
+          {/* Locked state — replaces tabs/content until unlocked */}
+          {prompt.is_locked && !unlocked ? (
+            <LockedPromptState onUnlockClick={() => setPinModalOpen(true)} />
+          ) : (
+          <>
           <div className="mt-6 print:hidden">
             <div className="flex gap-1 border-b border-border overflow-x-auto">
               {TABS.map((t) => (
@@ -263,6 +246,8 @@ function PromptDetail() {
             {tab === "Q&A" && <QATab promptId={prompt.id} qa={qaList} visitorQs={data.visitorQs} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
             {tab === "Comments" && <CommentsTab promptId={prompt.id} comments={data.comments} autoApprove={!!settings?.comment_auto_approve} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
           </div>
+          </>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -274,6 +259,52 @@ function PromptDetail() {
           nav, footer, .print\\:hidden { display: none !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function LockedPromptState({ onUnlockClick }: { onUnlockClick: () => void }) {
+  return (
+    <div className="mt-8 print:hidden">
+      <div className="vault-card rounded-2xl p-8 sm:p-10 border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card text-center relative overflow-hidden">
+        <div className="absolute inset-0 grid-bg opacity-20 pointer-events-none" />
+        <div className="relative">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/15 ring-1 ring-primary/30 shadow-glow">
+            <Lock className="h-7 w-7 text-primary" />
+          </div>
+          <h2 className="mt-5 text-2xl sm:text-3xl font-bold tracking-tight">This prompt is locked</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm sm:text-base text-muted-foreground">
+            The author protected this prompt with a 5-digit PIN. Enter the PIN to reveal the full prompt, sub-prompts, notes, videos, links and Q&amp;A.
+          </p>
+
+          <button
+            onClick={onUnlockClick}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm sm:text-base font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity"
+          >
+            <Lock className="h-4 w-4" /> Enter PIN to unlock
+          </button>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3 max-w-2xl mx-auto text-left">
+            <LockedFeature icon={Sparkles} title="Full prompt" desc="Reveal the complete prompt with all variables." />
+            <LockedFeature icon={Copy} title="One-click copy" desc="Copy ready-to-use text into your AI tool." />
+            <LockedFeature icon={FileText} title="Notes & resources" desc="See guidance, links and example videos." />
+          </div>
+
+          <p className="mt-6 text-xs text-muted-foreground">
+            Don't have the PIN? Contact the person who shared this link with you.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LockedFeature({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+      <Icon className="h-4 w-4 text-primary mb-2" />
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
     </div>
   );
 }
