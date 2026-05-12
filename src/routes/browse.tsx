@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search } from "lucide-react";
-import { Lock } from "lucide-react";
+import { Search, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { PromptCard, type PromptListItem } from "@/components/prompt-card";
 
