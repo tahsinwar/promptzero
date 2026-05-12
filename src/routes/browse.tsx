@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { PromptCard, type PromptListItem } from "@/components/prompt-card";
-import { getPublicBrowse } from "@/lib/public-vault-api";
 
 export const Route = createFileRoute("/browse")({
   component: Browse,
@@ -16,14 +16,23 @@ function Browse() {
   const [cat, setCat] = useState<string | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
 
-  const { data: browseData } = useQuery({
-    queryKey: ["public-browse"],
-    queryFn: getPublicBrowse,
+  const { data: cats } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => (await supabase.from("categories").select("*").order("name")).data ?? [],
   });
 
-  const cats = browseData?.categories;
-  const prompts = browseData?.prompts;
-  const settingsData = browseData?.settings;
+  const { data: prompts } = useQuery({
+    queryKey: ["all-prompts"],
+    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
+  });
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
+      return (data?.settings ?? {}) as { default_pin?: string };
+    },
+  });
   const defaultPin = settingsData?.default_pin || "00000";
 
   const filtered = useMemo(() => {

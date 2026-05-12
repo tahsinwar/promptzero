@@ -2,16 +2,19 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Vault, Search, Sun, Moon, ShieldCheck, Sparkles, Bookmark, Github, Twitter, Linkedin, Mail, Heart } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
-import { getPublicSettings } from "@/lib/public-vault-api";
 
 type Settings = { site_name?: string; tagline?: string; logo_url?: string };
 
 function useSiteSettings() {
   return useQuery({
     queryKey: ["site-settings"],
-    queryFn: () => getPublicSettings() as Promise<Settings>,
+    queryFn: async () => {
+      const { data } = await supabase.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
+      return (data?.settings ?? {}) as Settings;
+    },
     staleTime: 10 * 60 * 1000,
   });
 }
