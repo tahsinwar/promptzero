@@ -54,6 +54,10 @@ export function getPublicBrowse() {
   return publicVaultFetch<{ settings: PublicVaultSettings; categories: any[]; prompts: PromptListItem[] }>({ mode: "browse" });
 }
 
+export function getPublicSettings() {
+  return publicVaultFetch<PublicVaultSettings>({ mode: "settings" });
+}
+
 export function getPublicPromptDetail(slug: string) {
   return publicVaultFetch<PromptDetailPayload | null>({ mode: "detail", slug });
 }
@@ -71,5 +75,13 @@ export async function recordPublicPromptCopy(id: string) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "increment_copy", id }),
+  }).catch(() => undefined);
+}
+
+export async function recordPublicSubPromptCopy(id: string) {
+  await fetch("/api/public/vault", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "increment_sub_copy", id }),
   }).catch(() => undefined);
 }
