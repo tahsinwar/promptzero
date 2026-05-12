@@ -62,6 +62,10 @@ export function getPublicPromptDetail(slug: string) {
   return publicVaultFetch<PromptDetailPayload | null>({ mode: "detail", slug });
 }
 
+export function getPublicRelated(promptId: string, tagIds: string[]) {
+  return publicVaultFetch<any[]>({ mode: "related", promptId, tagIds: tagIds.join(",") });
+}
+
 export async function recordPublicPromptView(slug: string) {
   await fetch("/api/public/vault", {
     method: "POST",
@@ -84,4 +88,14 @@ export async function recordPublicSubPromptCopy(id: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "increment_sub_copy", id }),
   }).catch(() => undefined);
+}
+
+export async function publicVaultPost<T = { ok: true }>(body: Record<string, unknown>) {
+  const response = await fetch("/api/public/vault", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return (await response.json()) as T;
 }
