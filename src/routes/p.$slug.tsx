@@ -677,8 +677,7 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
   const rate = useMutation({
     mutationFn: async (value: 1 | -1) => {
       const session_id = getSessionId();
-      const { error } = await supabase.from("ratings").upsert({ prompt_id: prompt.id, value, session_id }, { onConflict: "prompt_id,session_id" });
-      if (error) throw error;
+      await publicVaultPost({ action: "rate", promptId: prompt.id, value, sessionId: session_id });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["prompt-full", slug] }); toast.success("Thanks!"); },
     onError: (e: any) => toast.error(e.message),
@@ -689,18 +688,7 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
     queryKey: ["related", prompt.id, tagIds],
     enabled: tagIds.length > 0,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data } = await supabase.from("prompt_tags").select("prompts(id,slug,title,copy_count,is_published)").in("tag_id", tagIds);
-      const seen = new Set<string>();
-      const out: any[] = [];
-      for (const r of (data ?? []) as any[]) {
-        const p = r.prompts;
-        if (p && p.is_published && p.id !== prompt.id && !seen.has(p.id)) {
-          seen.add(p.id); out.push(p);
-        }
-      }
-      return out.sort((a, b) => b.copy_count - a.copy_count).slice(0, 4);
-    },
+    queryFn: () => getPublicRelated(prompt.id, tagIds),
   });
 
   return (
