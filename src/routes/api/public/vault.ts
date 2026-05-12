@@ -15,7 +15,14 @@ function json(data: unknown, init?: ResponseInit) {
 
 async function getSettings() {
   const { data } = await supabaseAdmin.from("admin_settings").select("settings").eq("id", 1).maybeSingle();
-  return (data?.settings ?? {}) as Record<string, unknown>;
+  const settings = (data?.settings ?? {}) as Record<string, unknown>;
+  return {
+    site_name: typeof settings.site_name === "string" ? settings.site_name : undefined,
+    tagline: typeof settings.tagline === "string" ? settings.tagline : undefined,
+    logo_url: typeof settings.logo_url === "string" ? settings.logo_url : undefined,
+    default_pin: typeof settings.default_pin === "string" ? settings.default_pin : undefined,
+    comment_auto_approve: settings.comment_auto_approve === true,
+  };
 }
 
 async function getPromptList(params: { q?: string; ai?: string; cat?: string; diff?: string; sort?: SortKey; featuredOnly?: boolean; limit?: number }) {
