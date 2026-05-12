@@ -30,12 +30,14 @@ export function PinLockModal({
   fallbackPin,
   open,
   onUnlock,
+  onClose,
 }: {
   promptId: string;
   pinHash: string | null;
   fallbackPin: string;
   open: boolean;
   onUnlock: () => void;
+  onClose?: () => void;
 }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -143,10 +145,19 @@ export function PinLockModal({
         >
           <motion.div
             key={shake}
-            className="vault-card rounded-2xl p-6 w-full max-w-sm"
+            className="vault-card rounded-2xl p-6 w-full max-w-sm relative"
             initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1, x: shake ? [0, -8, 8, -6, 6, -3, 3, 0] : 0 }}
             transition={{ duration: 0.4 }}
           >
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              >
+                <span aria-hidden>×</span>
+              </button>
+            )}
             <div className="grid h-11 w-11 place-items-center rounded-lg bg-primary/15 ring-1 ring-primary/30 mb-3 mx-auto">
               <Lock className="h-5 w-5 text-primary" />
             </div>
