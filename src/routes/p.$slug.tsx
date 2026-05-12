@@ -220,6 +220,27 @@ function PromptDetail() {
             </div>
           </header>
 
+          {/* Locked CTA */}
+          {prompt.is_locked && !unlocked && (
+            <div className="mt-6 vault-card rounded-2xl p-5 sm:p-6 border border-primary/30 bg-primary/5 print:hidden">
+              <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/15 ring-1 ring-primary/30 shrink-0">
+                  <Lock className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold">This prompt is locked</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Enter the 5-digit PIN to view the full prompt content, copy it, and access all sub-prompts.</p>
+                </div>
+                <button
+                  onClick={() => setPinModalOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity shrink-0"
+                >
+                  <Lock className="h-4 w-4" /> Enter PIN to unlock
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="mt-6 print:hidden">
             <div className="flex gap-1 border-b border-border overflow-x-auto">
