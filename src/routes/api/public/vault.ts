@@ -94,6 +94,25 @@ async function getDetail(request: Request) {
   });
 }
 
+async function getRelated(request: Request) {
+  const url = new URL(request.url);
+  const promptId = z.string().uuid().parse(url.searchParams.get("promptId"));
+  const tagIds = (url.searchParams.get("tagIds") ?? "").split(",").filter(Boolean).map((id) => z.string().uuid().parse(id));
+  if (tagIds.length === 0) return json([]);
+  const { data, error } = await supabaseAdmin.from("prompt_tags").select("prompts(id,slug,title,copy_count,is_published)").in("tag_id", tagIds);
+  if (error) throw error;
+  const seen = new Set<string>();
+  const related: any[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const prompt = row.prompts;
+    if (prompt?.is_published && prompt.id !== promptId && !seen.has(prompt.id)) {
+      seen.add(prompt.id);
+      related.push(prompt);
+    }
+  }
+  return json(related.sort((a, b) => (b.copy_count ?? 0) - (a.copy_count ?? 0)).slice(0, 4));
+}
+
 export const Route = createFileRoute("/api/public/vault")({
   server: {
     handlers: {
@@ -104,6 +123,7 @@ export const Route = createFileRoute("/api/public/vault")({
           if (mode === "browse") return getBrowse();
           if (mode === "settings") return json(await getSettings());
           if (mode === "detail") return getDetail(request);
+          if (mode === "related") return getRelated(request);
           return json({ error: "Invalid mode" }, { status: 400 });
         } catch (error) {
           console.error("[public-vault]", error);
@@ -112,9 +132,17 @@ export const Route = createFileRoute("/api/public/vault")({
       },
       POST: async ({ request }) => {
         const body = z.object({
-          action: z.enum(["increment_view", "increment_copy", "increment_sub_copy"]),
+          action: z.enum(["increment_view", "increment_copy", "increment_sub_copy", "increment_link", "increment_comment_upvote", "ask_question", "add_comment", "rate"]),
           slug: z.string().optional(),
           id: z.string().uuid().optional(),
+          promptId: z.string().uuid().optional(),
+          parentId: z.string().uuid().optional(),
+          name: z.string().optional(),
+          question: z.string().optional(),
+          content: z.string().optional(),
+          autoApprove: z.boolean().optional(),
+          value: z.union([z.literal(1), z.literal(-1)]).optional(),
+          sessionId: z.string().optional(),
         }).parse(await request.json());
 
         if (body.action === "increment_view" && body.slug) {
@@ -125,6 +153,27 @@ export const Route = createFileRoute("/api/public/vault")({
         }
         if (body.action === "increment_sub_copy" && body.id) {
           await supabaseAdmin.rpc("increment_sub_prompt_copy_count" as any, { s_id: body.id } as any);
+        }
+        if (body.action === "increment_link" && body.id) {
+          await supabaseAdmin.rpc("increment_link_clicks" as any, { l_id: body.id } as any);
+        }
+        if (body.action === "increment_comment_upvote" && body.id) {
+          await supabaseAdmin.rpc("increment_comment_upvote", { c_id: body.id });
+        }
+        if (body.action === "ask_question" && body.promptId && body.name && body.question) {
+          await supabaseAdmin.from("visitor_questions").insert({ prompt_id: body.promptId, author_name: body.name.trim().slice(0, 100), question: body.question.trim().slice(0, 1000) });
+        }
+        if (body.action === "add_comment" && body.promptId && body.name && body.content) {
+          await supabaseAdmin.from("comments").insert({
+            prompt_id: body.promptId,
+            parent_id: body.parentId,
+            author_name: body.name.trim().slice(0, 100),
+            content: body.content.trim().slice(0, 2000),
+            is_approved: !!body.autoApprove,
+          });
+        }
+        if (body.action === "rate" && body.promptId && body.value && body.sessionId) {
+          await supabaseAdmin.from("ratings").upsert({ prompt_id: body.promptId, value: body.value, session_id: body.sessionId.slice(0, 100) }, { onConflict: "prompt_id,session_id" });
         }
         return json({ ok: true });
       },
