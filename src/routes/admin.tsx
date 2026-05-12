@@ -6,7 +6,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, FileText, FolderTree, MessageSquare, Settings,
-  LogOut, Bell, Menu, X,
+  LogOut, Bell, Menu, X, Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,6 +39,7 @@ const NAV = [
   { to: "/admin/prompts", label: "Prompts", icon: FileText },
   { to: "/admin/categories", label: "Categories & Tags", icon: FolderTree },
   { to: "/admin/comments", label: "Comments & Questions", icon: MessageSquare, badge: "pending" as const },
+  { to: "/admin/deploy", label: "Deploy Status", icon: Rocket },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

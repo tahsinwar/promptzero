@@ -20,6 +20,7 @@ import { Route as PromptsSlugRouteImport } from './routes/prompts.$slug'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPromptsRouteImport } from './routes/admin.prompts'
+import { Route as AdminDeployRouteImport } from './routes/admin.deploy'
 import { Route as AdminCommentsRouteImport } from './routes/admin.comments'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminPromptsIndexRouteImport } from './routes/admin.prompts.index'
@@ -80,6 +81,11 @@ const AdminPromptsRoute = AdminPromptsRouteImport.update({
   path: '/prompts',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDeployRoute = AdminDeployRouteImport.update({
+  id: '/deploy',
+  path: '/deploy',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCommentsRoute = AdminCommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
+  '/admin/deploy': typeof AdminDeployRoute
   '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
+  '/admin/deploy': typeof AdminDeployRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
   '/prompts/$slug': typeof PromptsSlugRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/saved': typeof SavedRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/comments': typeof AdminCommentsRoute
+  '/admin/deploy': typeof AdminDeployRoute
   '/admin/prompts': typeof AdminPromptsRouteWithChildren
   '/admin/settings': typeof AdminSettingsRoute
   '/p/$slug': typeof PSlugRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/admin/categories'
     | '/admin/comments'
+    | '/admin/deploy'
     | '/admin/prompts'
     | '/admin/settings'
     | '/p/$slug'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/admin/categories'
     | '/admin/comments'
+    | '/admin/deploy'
     | '/admin/settings'
     | '/p/$slug'
     | '/prompts/$slug'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/admin/categories'
     | '/admin/comments'
+    | '/admin/deploy'
     | '/admin/prompts'
     | '/admin/settings'
     | '/p/$slug'
@@ -293,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPromptsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/deploy': {
+      id: '/admin/deploy'
+      path: '/deploy'
+      fullPath: '/admin/deploy'
+      preLoaderRoute: typeof AdminDeployRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/comments': {
       id: '/admin/comments'
       path: '/comments'
@@ -341,6 +360,7 @@ const AdminPromptsRouteWithChildren = AdminPromptsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCommentsRoute: typeof AdminCommentsRoute
+  AdminDeployRoute: typeof AdminDeployRoute
   AdminPromptsRoute: typeof AdminPromptsRouteWithChildren
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -349,6 +369,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCommentsRoute: AdminCommentsRoute,
+  AdminDeployRoute: AdminDeployRoute,
   AdminPromptsRoute: AdminPromptsRouteWithChildren,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
