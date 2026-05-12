@@ -52,8 +52,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://nveqnzglpbnqjsmislvi.supabase.co", crossOrigin: "anonymous" } as any,
-      { rel: "dns-prefetch", href: "https://nveqnzglpbnqjsmislvi.supabase.co" },
     ],
   }),
   shellComponent: RootShell,
