@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sparkles, Search, Bot, Image as ImageIcon, Video, Music, ChevronDown,
-  Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu,
+  Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu, Lock,
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
@@ -51,6 +51,7 @@ type HomeSearch = {
   cat?: string;
   diff?: Difficulty;
   sort?: SortKey;
+  locked?: "1";
 };
 
 export const Route = createFileRoute("/")({
@@ -61,6 +62,7 @@ export const Route = createFileRoute("/")({
     cat: typeof s.cat === "string" && s.cat ? s.cat : undefined,
     diff: DIFFICULTIES.includes(s.diff as Difficulty) ? (s.diff as Difficulty) : undefined,
     sort: SORTS.some((x) => x.key === s.sort) ? (s.sort as SortKey) : undefined,
+    locked: s.locked === "1" ? "1" : undefined,
   }),
   head: () => ({ meta: [{ title: "Prompt Vault — Best AI Prompts Collection" }] }),
 });
