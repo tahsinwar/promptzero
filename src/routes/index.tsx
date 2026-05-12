@@ -321,20 +321,22 @@ function HomePage() {
             onChange={(v) => setParams({ sort: v === "newest" ? undefined : (v as SortKey) })}
             options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
           />
-          <button
-            type="button"
-            onClick={() => setParams({ locked: showLocked ? undefined : "1" })}
-            aria-pressed={showLocked}
-            title={showLocked ? "Hide locked prompts" : "Show locked prompts"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap ${
-              showLocked
-                ? "border-primary/40 bg-primary/15 text-primary"
-                : "border-border bg-input/40 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Lock className="h-4 w-4" />
-            {showLocked ? "Showing locked" : "Hide locked"}
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setParams({ locked: showLocked ? undefined : "1" })}
+              aria-pressed={showLocked}
+              title={showLocked ? "Hide locked prompts" : "Preview locked prompts (admin)"}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap ${
+                showLocked
+                  ? "border-accent/50 bg-accent/15 text-accent"
+                  : "border-border bg-input/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Lock className="h-4 w-4" />
+              {showLocked ? "Admin: showing locked" : "Admin: preview locked"}
+            </button>
+          )}
         </div>
 
         {/* Results */}
