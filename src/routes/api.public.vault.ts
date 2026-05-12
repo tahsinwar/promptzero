@@ -86,8 +86,8 @@ export const Route = createFileRoute("/api/public/vault")({
             getSettings(supabase),
             supabase.rpc("get_home_stats"),
             supabase.from("categories").select("id,name,slug,color").order("name"),
-            supabase.from("prompts").select(promptColumns).eq("is_published", true).eq("is_featured", true).order("view_count", { ascending: false }).limit(8),
-            applyPromptFilters(supabase.from("prompts").select(promptColumns).eq("is_published", true), url).limit(mode === "browse" ? 200 : 60),
+            supabase.from("prompts").select(promptColumns).eq("is_published", true).eq("is_featured", true).eq("is_locked", false).is("pin_hash", null).order("view_count", { ascending: false }).limit(8),
+            applyPromptFilters(supabase.from("prompts").select(promptColumns).eq("is_published", true).eq("is_locked", false).is("pin_hash", null), url).limit(mode === "browse" ? 200 : 60),
           ]);
 
           const firstError = statsResult.error || categoriesResult.error || featuredResult.error || promptsResult.error;
