@@ -8,6 +8,7 @@ import {
   Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
   Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
   Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock, Info, X,
+  Lock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/slug";
@@ -51,6 +52,7 @@ function PromptDetail() {
   const [tab, setTab] = useState<Tab>("Prompt");
   const [shareOpen, setShareOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["prompt-full", slug],
@@ -98,8 +100,14 @@ function PromptDetail() {
 
   // unlock state
   useEffect(() => {
-    if (prompt?.is_locked) setUnlocked(isUnlocked(prompt.id));
-    else setUnlocked(true);
+    if (prompt?.is_locked) {
+      const u = isUnlocked(prompt.id);
+      setUnlocked(u);
+      setPinModalOpen(!u);
+    } else {
+      setUnlocked(true);
+      setPinModalOpen(false);
+    }
   }, [prompt]);
 
   // SEO: dynamic title & description from loaded data
@@ -172,8 +180,9 @@ function PromptDetail() {
         promptId={prompt.id}
         pinHash={prompt.pin_hash}
         fallbackPin={settings?.default_pin ?? "00000"}
-        open={!!prompt.is_locked && !unlocked}
-        onUnlock={() => setUnlocked(true)}
+        open={!!prompt.is_locked && !unlocked && pinModalOpen}
+        onUnlock={() => { setUnlocked(true); setPinModalOpen(false); }}
+        onClose={() => setPinModalOpen(false)}
       />
       <ShareModal open={shareOpen} url={typeof window !== "undefined" ? window.location.href : ""} title={prompt.title} onClose={() => setShareOpen(false)} />
 
@@ -210,6 +219,27 @@ function PromptDetail() {
               </div>
             </div>
           </header>
+
+          {/* Locked CTA */}
+          {prompt.is_locked && !unlocked && (
+            <div className="mt-6 vault-card rounded-2xl p-5 sm:p-6 border border-primary/30 bg-primary/5 print:hidden">
+              <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/15 ring-1 ring-primary/30 shrink-0">
+                  <Lock className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold">This prompt is locked</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Enter the 5-digit PIN to view the full prompt content, copy it, and access all sub-prompts.</p>
+                </div>
+                <button
+                  onClick={() => setPinModalOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity shrink-0"
+                >
+                  <Lock className="h-4 w-4" /> Enter PIN to unlock
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="mt-6 print:hidden">
