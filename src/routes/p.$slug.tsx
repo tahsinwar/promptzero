@@ -303,9 +303,9 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
     if (sub.id && sub.id !== promptId) {
-      await supabase.rpc("increment_sub_prompt_copy_count" as any, { s_id: sub.id } as any);
+      await recordPublicSubPromptCopy(sub.id);
     } else {
-      await supabase.rpc("increment_copy_count", { p_id: promptId });
+      await recordPublicPromptCopy(promptId);
     }
     toast.success("Copied to clipboard");
   };
