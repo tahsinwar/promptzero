@@ -8,6 +8,7 @@ import {
   Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
   Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
   Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock, Info, X,
+  Lock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/slug";
@@ -51,6 +52,7 @@ function PromptDetail() {
   const [tab, setTab] = useState<Tab>("Prompt");
   const [shareOpen, setShareOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["prompt-full", slug],
@@ -98,8 +100,14 @@ function PromptDetail() {
 
   // unlock state
   useEffect(() => {
-    if (prompt?.is_locked) setUnlocked(isUnlocked(prompt.id));
-    else setUnlocked(true);
+    if (prompt?.is_locked) {
+      const u = isUnlocked(prompt.id);
+      setUnlocked(u);
+      setPinModalOpen(!u);
+    } else {
+      setUnlocked(true);
+      setPinModalOpen(false);
+    }
   }, [prompt]);
 
   // SEO: dynamic title & description from loaded data
