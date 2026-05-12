@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type SortKey = "newest" | "most_copied" | "highest_rated" | "trending";
 
-const promptSelect = "id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)";
+const promptSelect = "id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,category_id,categories(name,color)";
 
 function json(data: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(data), {
