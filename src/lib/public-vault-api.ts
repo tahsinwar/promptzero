@@ -3,6 +3,7 @@ import type { PromptListItem } from "@/components/prompt-card";
 export type PublicVaultSettings = {
   site_name?: string;
   tagline?: string;
+  logo_url?: string;
   default_pin?: string;
   comment_auto_approve?: boolean;
 };
