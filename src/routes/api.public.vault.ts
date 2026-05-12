@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { applyPromptVisibility, PUBLIC_PROMPT_COLUMNS } from "@/lib/prompt-visibility";
 
 const PUBLIC_SUPABASE_URL = "https://nveqnzglpbnqjsmislvi.supabase.co";
 const PUBLIC_SUPABASE_KEY =
@@ -8,8 +9,7 @@ const PUBLIC_SUPABASE_KEY =
 
 type SortKey = "newest" | "most_copied" | "highest_rated" | "trending";
 
-const promptColumns =
-  "id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,category_id,categories(name,color)";
+const promptColumns = PUBLIC_PROMPT_COLUMNS;
 
 function getPublicClient() {
   return createClient<Database>(
@@ -86,8 +86,13 @@ export const Route = createFileRoute("/api/public/vault")({
             getSettings(supabase),
             supabase.rpc("get_home_stats"),
             supabase.from("categories").select("id,name,slug,color").order("name"),
-            supabase.from("prompts").select(promptColumns).eq("is_published", true).eq("is_featured", true).eq("is_locked", false).is("pin_hash", null).order("view_count", { ascending: false }).limit(8),
-            applyPromptFilters(supabase.from("prompts").select(promptColumns).eq("is_published", true).eq("is_locked", false).is("pin_hash", null), url).limit(mode === "browse" ? 200 : 60),
+            applyPromptVisibility(
+              supabase.from("prompts").select(promptColumns).eq("is_featured", true),
+            ).order("view_count", { ascending: false }).limit(8),
+            applyPromptFilters(
+              applyPromptVisibility(supabase.from("prompts").select(promptColumns)),
+              url,
+            ).limit(mode === "browse" ? 200 : 60),
           ]);
 
           const firstError = statsResult.error || categoriesResult.error || featuredResult.error || promptsResult.error;

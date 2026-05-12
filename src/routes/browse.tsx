@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Search, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { PromptCard, type PromptListItem } from "@/components/prompt-card";
+import { applyPromptVisibility, isPromptVisible } from "@/lib/prompt-visibility";
 
 export const Route = createFileRoute("/browse")({
   component: Browse,
@@ -24,7 +25,14 @@ function Browse() {
 
   const { data: prompts } = useQuery({
     queryKey: ["all-prompts"],
-    queryFn: async () => (await supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)").eq("is_published", true).order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      // Fetch with locked included; client-side toggle filters them.
+      const q = applyPromptVisibility(
+        supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)"),
+        { includeLocked: true },
+      );
+      return (await q.order("created_at", { ascending: false })).data ?? [];
+    },
   });
 
   const { data: settingsData } = useQuery({
@@ -39,8 +47,7 @@ function Browse() {
   const filtered = useMemo(() => {
     if (!prompts) return [];
     return prompts.filter((p: any) => {
-      const locked = !!p.is_locked || !!p.pin_hash;
-      if (!showLocked && locked) return false;
+      if (!isPromptVisible(p, { includeLocked: showLocked })) return false;
       if (cat && p.category_id !== cat) return false;
       if (diff && p.difficulty !== diff) return false;
       if (q) {

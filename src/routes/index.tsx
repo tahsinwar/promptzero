@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { useViewMode } from "@/hooks/use-bookmarks";
+import { applyPromptVisibility } from "@/lib/prompt-visibility";
 
 const STALE = 5 * 60 * 1000;
 
@@ -120,11 +121,11 @@ function HomePage() {
   const { data: featured } = useQuery({
     queryKey: ["featured-prompts", { showLocked }],
     queryFn: async () => {
-      let q = supabase
+      const base = supabase
         .from("prompts")
         .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true).eq("is_featured", true);
-      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
+        .eq("is_featured", true);
+      const q = applyPromptVisibility(base, { includeLocked: showLocked });
       const { data } = await q.order("view_count", { ascending: false }).limit(8);
       return (data ?? []) as unknown as PromptListItem[];
     },
@@ -135,11 +136,10 @@ function HomePage() {
   const { data: prompts, isLoading: loadingPrompts } = useQuery({
     queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort, showLocked }],
     queryFn: async () => {
-      let q = supabase
+      let q: any = supabase
         .from("prompts")
-        .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)")
-        .eq("is_published", true);
-      if (!showLocked) q = q.eq("is_locked", false).is("pin_hash", null);
+        .select("id,slug,title,description,content,difficulty,ai_models,is_locked,is_featured,view_count,copy_count,rating_avg,pin_hash,categories(name,color)");
+      q = applyPromptVisibility(q, { includeLocked: showLocked });
 
       if (search.q) q = q.or(`title.ilike.%${search.q}%,description.ilike.%${search.q}%`);
       if (search.cat) q = q.eq("category_id", search.cat);
