@@ -4,4 +4,8 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  "vars": {
+    "SUPABASE_URL": "https://nveqnzglpbnqjsmislvi.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52ZXFuemdscGJucWpzbWlzbHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNzc0NjMsImV4cCI6MjA5Mzk1MzQ2M30.j2YrIyCp0NxsJaIRtes_MJ0qppAR-EoLXt9ksfLXhVo"
+  },
 }
