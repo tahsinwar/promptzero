@@ -102,6 +102,7 @@ export const Route = createFileRoute("/api/public/vault")({
           const mode = new URL(request.url).searchParams.get("mode");
           if (mode === "home") return getHome(request);
           if (mode === "browse") return getBrowse();
+          if (mode === "settings") return json(await getSettings());
           if (mode === "detail") return getDetail(request);
           return json({ error: "Invalid mode" }, { status: 400 });
         } catch (error) {
@@ -111,7 +112,7 @@ export const Route = createFileRoute("/api/public/vault")({
       },
       POST: async ({ request }) => {
         const body = z.object({
-          action: z.enum(["increment_view", "increment_copy"]),
+          action: z.enum(["increment_view", "increment_copy", "increment_sub_copy"]),
           slug: z.string().optional(),
           id: z.string().uuid().optional(),
         }).parse(await request.json());
@@ -121,6 +122,9 @@ export const Route = createFileRoute("/api/public/vault")({
         }
         if (body.action === "increment_copy" && body.id) {
           await supabaseAdmin.rpc("increment_copy_count", { p_id: body.id });
+        }
+        if (body.action === "increment_sub_copy" && body.id) {
+          await supabaseAdmin.rpc("increment_sub_prompt_copy_count" as any, { s_id: body.id } as any);
         }
         return json({ ok: true });
       },
