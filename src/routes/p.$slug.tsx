@@ -475,7 +475,7 @@ function VideosTab({ videos }: { videos: any[] }) {
 /* ---------- Links ---------- */
 function LinksTab({ links }: { links: any[] }) {
   if (links.length === 0) return <p className="text-sm text-muted-foreground">No links added.</p>;
-  const onClick = (id: string) => { supabase.rpc("increment_link_clicks" as any, { l_id: id } as any); };
+  const onClick = (id: string) => { void publicVaultPost({ action: "increment_link", id }); };
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {links.map((l) => {
@@ -522,7 +522,7 @@ function QATab({ promptId, qa, visitorQs, onSubmitted }: { promptId: string; qa:
     e.preventDefault();
     if (!name.trim() || !question.trim()) return;
     setSubmitting(true);
-    const { error } = await supabase.from("visitor_questions").insert({ prompt_id: promptId, author_name: name.trim().slice(0, 100), question: question.trim().slice(0, 1000) });
+    const error = await publicVaultPost({ action: "ask_question", promptId, name, question }).then(() => null).catch((e) => e as Error);
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
     setDone(true); setName(""); setQuestion("");
@@ -574,10 +574,7 @@ function CommentsTab({ promptId, comments, autoApprove, onSubmitted }: { promptI
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !content.trim()) return;
-    const { error } = await supabase.from("comments").insert({
-      prompt_id: promptId, author_name: name.trim().slice(0, 100),
-      content: content.trim().slice(0, 2000), is_approved: autoApprove,
-    });
+    const error = await publicVaultPost({ action: "add_comment", promptId, name, content, autoApprove }).then(() => null).catch((e) => e as Error);
     if (error) { toast.error(error.message); return; }
     setName(""); setContent(""); setDone(true);
     toast.success(autoApprove ? "Comment posted" : "Comment pending approval");
@@ -616,17 +613,13 @@ function CommentItem({ comment, replies, promptId, autoApprove, onSubmitted }: {
   const [content, setContent] = useState("");
 
   const upvote = async () => {
-    await supabase.rpc("increment_comment_upvote", { c_id: comment.id });
+    await publicVaultPost({ action: "increment_comment_upvote", id: comment.id });
     onSubmitted();
   };
   const submitReply = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !content.trim()) return;
-    const { error } = await supabase.from("comments").insert({
-      prompt_id: promptId, parent_id: comment.id,
-      author_name: name.trim().slice(0, 100), content: content.trim().slice(0, 2000),
-      is_approved: autoApprove,
-    });
+    const error = await publicVaultPost({ action: "add_comment", promptId, parentId: comment.id, name, content, autoApprove }).then(() => null).catch((e) => e as Error);
     if (error) { toast.error(error.message); return; }
     setName(""); setContent(""); setReplyOpen(false);
     toast.success(autoApprove ? "Reply posted" : "Reply pending approval");
