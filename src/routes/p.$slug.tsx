@@ -16,6 +16,7 @@ import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
 import { sanitizeBasicHtml } from "@/lib/sanitize-html";
+import { useCopyCount, useViewCount } from "@/hooks/use-copy-counts";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
