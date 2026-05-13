@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { CopyCountsProvider } from "@/hooks/use-copy-counts";
 import { SiteLayout } from "@/components/layout/site-layout";
 import { GlobalLoader } from "@/components/global-loader";
+import { usePauseOnHidden } from "@/hooks/use-pause-on-hidden";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -74,6 +75,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  usePauseOnHidden();
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
