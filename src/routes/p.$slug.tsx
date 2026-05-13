@@ -15,6 +15,7 @@ import { getSessionId } from "@/lib/slug";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
+import { sanitizeBasicHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
@@ -203,7 +204,12 @@ function PromptDetail() {
               <span className="px-2 py-1 rounded-md bg-primary/15 text-primary">v{data.versionCount}</span>
             </div>
             <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">{prompt.title}</h1>
-            {prompt.description && <p className="mt-2 text-muted-foreground">{prompt.description}</p>}
+            {prompt.description && (
+              <div
+                className="mt-2 text-muted-foreground prompt-rich"
+                dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(prompt.description) }}
+              />
+            )}
 
             <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground print:hidden">
               <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {prompt.view_count} views</span>
@@ -369,6 +375,16 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
   const [fillEnabled, setFillEnabled] = useState(true);
   const showFillToggle = fillAllowed && variables.length > 0 && unlocked;
   const showFillPanel = showFillToggle && fillEnabled;
+  const TRUNCATE_TOKENS = 350;
+  const isLong = tokens > TRUNCATE_TOKENS;
+  const [expanded, setExpanded] = useState(false);
+  const previewContent = useMemo(() => {
+    if (!isLong) return content;
+    // ~350 tokens ≈ 1400 chars; cut at last whitespace for cleanliness
+    const cut = content.slice(0, TRUNCATE_TOKENS * 4);
+    const lastBreak = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
+    return (lastBreak > TRUNCATE_TOKENS * 3 ? cut.slice(0, lastBreak) : cut).trimEnd();
+  }, [content, isLong]);
 
   const buildContent = () => {
     let c = content;
@@ -457,9 +473,31 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
         </div>
       )}
 
-      <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
-        {unlocked ? content : "🔒 Content locked — enter PIN to view"}
-      </pre>
+      {unlocked ? (
+        <>
+          <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+            {isLong && !expanded ? `${previewContent}…` : content}
+          </pre>
+          {isLong && (
+            <div className="border-t border-border px-4 py-2 flex justify-center">
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                {expanded ? (
+                  <>Show less <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /></>
+                ) : (
+                  <>See more ({tokens} tokens) <ChevronDown className="h-3.5 w-3.5 transition-transform" /></>
+                )}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+          🔒 Content locked — enter PIN to view
+        </pre>
+      )}
     </div>
   );
 }
