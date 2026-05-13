@@ -130,11 +130,12 @@
     background: var(--gradient-card);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-card);
-    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s, box-shadow 0.3s;
   }
   .vault-card:hover {
     border-color: oklch(0.72 0.22 295 / 0.5);
     box-shadow: var(--shadow-glow);
+    transform: translateY(-4px);
   }
   .grid-bg {
     background-image:
