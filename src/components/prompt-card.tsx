@@ -275,14 +275,14 @@ export function PromptRow({ p, defaultPin }: { p: PromptListItem; defaultPin: st
 
 export function PromptCardSkeleton() {
   return (
-    <div className="vault-card rounded-xl p-5 animate-pulse">
-      <div className="h-4 w-20 rounded bg-muted/60 mb-3" />
-      <div className="h-5 w-3/4 rounded bg-muted/60" />
-      <div className="mt-2 h-4 w-full rounded bg-muted/40" />
-      <div className="mt-1.5 h-4 w-2/3 rounded bg-muted/40" />
+    <div className="vault-card skeleton-card rounded-xl p-5">
+      <div className="skeleton h-4 w-20 mb-3" />
+      <div className="skeleton h-5 w-3/4" />
+      <div className="skeleton mt-2 h-4 w-full" />
+      <div className="skeleton mt-1.5 h-4 w-2/3" />
       <div className="mt-4 flex gap-2">
-        <div className="h-3 w-10 rounded bg-muted/60" />
-        <div className="h-3 w-10 rounded bg-muted/60" />
+        <div className="skeleton h-3 w-10" />
+        <div className="skeleton h-3 w-10" />
       </div>
     </div>
   );
