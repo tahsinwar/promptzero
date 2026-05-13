@@ -92,15 +92,33 @@ echo.
 REM ---------- STEP 3: Deploy ----------
 echo [3/3] Building and deploying to Cloudflare Workers...
 echo ------------------------------------------------------------
+set "DEPLOY_TRY=0"
+:deploy_retry
+set /a DEPLOY_TRY+=1
+echo.
+echo [INFO] Deploy attempt !DEPLOY_TRY! of 3...
+echo.
 call npm run deploy
-if errorlevel 1 (
+if not errorlevel 1 goto :deploy_ok
+if !DEPLOY_TRY! GEQ 3 (
     color 0C
     echo.
-    echo [ERROR] Deploy failed! Scroll up to see the error.
+    echo [ERROR] Deploy failed after 3 attempts! Scroll up to see the error.
+    echo.
+    echo Common causes:
+    echo    - Network/VPN/Firewall blocking Cloudflare API
+    echo    - Wrangler not logged in  ^(run: npx wrangler login^)
+    echo    - Cloudflare API temporary outage
     echo.
     pause
     exit /b 1
 )
+echo.
+echo [WARN] Deploy attempt !DEPLOY_TRY! failed. Retrying in 5 seconds...
+timeout /t 5 /nobreak >nul
+goto :deploy_retry
+
+:deploy_ok
 
 REM ---------- SUCCESS ----------
 color 0A
