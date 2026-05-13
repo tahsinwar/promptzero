@@ -256,13 +256,18 @@ function HomePage() {
           <p className="mt-1 text-muted-foreground">Click a tool to filter prompts below.</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {AI_TOOLS.map((t) => {
+          {AI_TOOLS.map((t, idx) => {
             const Icon = CAT_ICON[t.cat];
             const active = search.ai === t.name;
             const color = CAT_COLOR[t.cat];
             return (
-              <button
+              <motion.button
                 key={t.name}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.4, delay: Math.min(idx * 0.04, 0.5), ease: "easeOut" }}
+                whileHover={{ y: -4 }}
                 onClick={() => setParams({ ai: active ? undefined : t.name })}
                 className={`vault-card rounded-xl p-4 text-left transition-all ${active ? "ring-2 ring-primary shadow-glow" : ""}`}
                 style={active ? { borderColor: color } : undefined}
@@ -276,7 +281,7 @@ function HomePage() {
                   </span>
                 </div>
                 <div className="font-semibold text-sm">{t.name}</div>
-              </button>
+              </motion.button>
             );
           })}
         </div>
