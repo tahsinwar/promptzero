@@ -153,12 +153,15 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
   const catColor = cat?.color ?? undefined;
   const prefetch = usePrefetchPromptDetail();
   const warm = () => prefetch(p.slug);
+  const [hover, setHover] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: "easeOut" }}
-      className="h-full"
+      className="h-full relative"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
     >
     <Link
       to="/p/$slug"
@@ -205,6 +208,25 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
         </span>
       </div>
     </Link>
+    <AnimatePresence>
+      {hover && !p.is_locked && p.content && (
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 6, scale: 0.98 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-[min(28rem,90vw)] -translate-x-1/2 md:block"
+        >
+          <div className="rounded-xl border border-border/80 bg-popover/95 backdrop-blur-xl p-4 shadow-2xl ring-1 ring-primary/10">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Prompt preview</div>
+            <pre className="text-xs text-foreground/90 whitespace-pre-wrap line-clamp-[10] font-mono leading-relaxed">{p.content}</pre>
+            {p.content.length > 400 && (
+              <div className="mt-2 text-[10px] text-muted-foreground italic">Click card to read full prompt →</div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
     </motion.div>
   );
 }
