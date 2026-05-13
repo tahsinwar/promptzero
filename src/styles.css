@@ -267,6 +267,43 @@ html[data-page-hidden="true"] [data-radix-collection-item] {
   animation-duration: 0s !important;
 }
 
+/* Respect the user's OS-level reduced-motion preference: stop ambient
+   floating orbs, shimmer sweeps, gradient shifts, and skeleton pulses;
+   collapse incidental transitions to a near-instant fade. */
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .orb-primary,
+  .orb-accent,
+  .orb-pink,
+  .gradient-text-animated,
+  .shimmer-badge::after,
+  .skeleton,
+  .skeleton::after,
+  .skeleton-card {
+    animation: none !important;
+  }
+  .orb,
+  .orb-primary,
+  .orb-accent,
+  .orb-pink {
+    /* Keep them as static decorative glows, slightly dimmer */
+    opacity: 0.35 !important;
+    transform: none !important;
+  }
+  .skeleton {
+    /* Static neutral fill so loading still reads as placeholder */
+    background: oklch(from var(--color-muted) l c h / 0.45) !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer utilities {
   .prompt-rich { line-height: 1.55; }
   .prompt-rich strong, .prompt-rich b { font-weight: 600; color: var(--color-foreground); }
