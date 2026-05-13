@@ -22,7 +22,7 @@ function Browse() {
   const [showLockedRaw, setShowLocked] = useState(false);
   const showLocked = isAdmin && showLockedRaw;
 
-  const { data: cats } = useQuery({
+  const { data: cats, isLoading: loadingCats } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => (await supabase.from("categories").select("*").order("name")).data ?? [],
   });
@@ -80,9 +80,11 @@ function Browse() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Chip active={cat === null} onClick={() => setCat(null)}>All categories</Chip>
-          {cats?.map((c) => (
-            <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color ?? undefined}>{c.name}</Chip>
-          ))}
+          {loadingCats && !cats
+            ? Array.from({ length: 6 }).map((_, i) => <ChipSkeleton key={i} index={i} />)
+            : cats?.map((c) => (
+                <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color ?? undefined}>{c.name}</Chip>
+              ))}
         </div>
         <div className="flex flex-wrap gap-2">
           {(["beginner", "intermediate", "advanced"] as const).map((d) => (
@@ -143,5 +145,18 @@ function Chip({ children, active, onClick, color }: { children: React.ReactNode;
       className={`rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition-all ${active ? "bg-primary/15 border-primary/40 text-primary" : "border-border bg-card/40 text-muted-foreground hover:text-foreground hover:border-border"}`}>
       {children}
     </button>
+  );
+}
+
+function ChipSkeleton({ index = 0 }: { index?: number }) {
+  // Varied widths so the skeleton row mimics real category chips
+  const widths = [64, 88, 72, 96, 80, 104];
+  const w = widths[index % widths.length];
+  return (
+    <div
+      aria-hidden
+      className="h-7 rounded-full border border-border bg-card/40 animate-pulse"
+      style={{ width: w }}
+    />
   );
 }
