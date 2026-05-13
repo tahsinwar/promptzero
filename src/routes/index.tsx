@@ -8,6 +8,7 @@ import {
   Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu, Lock,
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
+import { LoadError } from "@/components/load-error";
 import { useViewMode } from "@/hooks/use-bookmarks";
 import { applyPromptVisibility } from "@/lib/prompt-visibility";
 import { useAuth } from "@/hooks/use-auth";
@@ -136,7 +137,7 @@ function HomePage() {
   });
 
   // All prompts (filtered + sorted)
-  const { data: prompts, isLoading: loadingPrompts } = useQuery({
+  const { data: prompts, isLoading: loadingPrompts, error: promptsError, isFetching: refetchingPrompts, refetch: refetchPrompts } = useQuery({
     queryKey: ["prompts", { q: search.q, ai: search.ai, cat: search.cat, diff: search.diff, sort, showLocked }],
     queryFn: async () => {
       let q: any = supabase
@@ -388,6 +389,13 @@ function HomePage() {
           <div className={view === "grid" ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
             {Array.from({ length: 6 }).map((_, i) => <PromptCardSkeleton key={i} />)}
           </div>
+        ) : promptsError ? (
+          <LoadError
+            title="Couldn't load prompts"
+            message={(promptsError as Error)?.message}
+            onRetry={() => refetchPrompts()}
+            isRetrying={refetchingPrompts}
+          />
         ) : prompts && prompts.length > 0 ? (
           view === "grid" ? (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

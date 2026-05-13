@@ -8,7 +8,7 @@ import {
   Bookmark, Share2, Copy, Check, ThumbsUp, ThumbsDown, Printer,
   Eye, Sparkles, ChevronDown, MessageSquare, Youtube, FileText,
   Github, Twitter, Linkedin, Globe, HardDrive, ExternalLink, Clock, Info, X,
-  Lock,
+  Lock, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/slug";
@@ -56,7 +56,7 @@ function PromptDetail() {
   const [unlocked, setUnlocked] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["prompt-full", slug],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -149,7 +149,35 @@ function PromptDetail() {
       </div>
     );
   }
-  if (error || !data || !prompt) {
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md px-6 py-20">
+        <div className="vault-card rounded-2xl p-8 text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-destructive/15 text-destructive">
+            <AlertTriangle className="h-7 w-7" />
+          </div>
+          <h1 className="mt-4 text-xl font-bold">Couldn't load this prompt</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {(error as Error)?.message || "Network or server error. Please try again."}
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-2">
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Retrying…" : "Retry"}
+            </button>
+            <Link to="/" className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm hover:bg-secondary">
+              Back home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!data || !prompt) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-20 text-center">
         <h1 className="text-3xl font-bold">404</h1>
