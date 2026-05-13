@@ -476,14 +476,12 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
       {unlocked ? (
         <>
           <div className="relative">
-            <div
-              className="grid transition-[grid-template-rows] duration-500 ease-in-out"
-              style={{ gridTemplateRows: isLong && !expanded ? "180px" : "1fr" }}
+            <pre
+              className="overflow-hidden px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed transition-[max-height] duration-500 ease-in-out"
+              style={{ maxHeight: isLong && !expanded ? "180px" : "9999px" }}
             >
-              <pre className="overflow-hidden px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed min-h-0">
-                {content}
-              </pre>
-            </div>
+              {content}
+            </pre>
             {isLong && !expanded && (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent" />
             )}
