@@ -147,3 +147,16 @@ function Chip({ children, active, onClick, color }: { children: React.ReactNode;
     </button>
   );
 }
+
+function ChipSkeleton({ index = 0 }: { index?: number }) {
+  // Varied widths so the skeleton row mimics real category chips
+  const widths = [64, 88, 72, 96, 80, 104];
+  const w = widths[index % widths.length];
+  return (
+    <div
+      aria-hidden
+      className="h-7 rounded-full border border-border bg-card/40 animate-pulse"
+      style={{ width: w }}
+    />
+  );
+}
