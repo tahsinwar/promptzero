@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PinModal } from "./pin-modal";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCopyCount, useBumpCopyCount } from "@/hooks/use-copy-counts";
 
 export type PromptListItem = {
   id: string;
@@ -28,6 +29,26 @@ export type PromptListItem = {
 async function copyPrompt(p: PromptListItem) {
   await navigator.clipboard.writeText(p.content);
   await supabase.rpc("increment_copy_count", { p_id: p.id });
+}
+
+function LiveCount({ id, fallback, className }: { id: string; fallback: number; className?: string }) {
+  const value = useCopyCount(id, fallback);
+  return (
+    <span className={`relative inline-block tabular-nums ${className ?? ""}`}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={value}
+          initial={{ y: -6, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 6, opacity: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="inline-block"
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 // Warm the react-query cache with the detail RPC on hover/focus so the
@@ -74,9 +95,11 @@ function BookmarkBtn({ slug, onClick }: { slug: string; onClick?: (e: React.Mous
 function CopyBtn({ p, defaultPin, compact }: { p: PromptListItem; defaultPin: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
+  const bump = useBumpCopyCount();
 
   const doCopy = async () => {
     try {
+      bump(p.id);
       await copyPrompt(p);
       setCopied(true);
       toast.success("Copied to clipboard");
@@ -173,7 +196,7 @@ export function PromptCard({ p, defaultPin }: { p: PromptListItem; defaultPin: s
 
       <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{p.view_count ?? 0}</span>
-        <span className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" />{p.copy_count ?? 0}</span>
+        <span className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /><LiveCount id={p.id} fallback={p.copy_count ?? 0} /></span>
         {!!(p.rating_avg && Number(p.rating_avg) > 0) && (
           <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-current text-accent" />{Number(p.rating_avg).toFixed(1)}</span>
         )}
@@ -220,7 +243,7 @@ export function PromptRow({ p, defaultPin }: { p: PromptListItem; defaultPin: st
         ))}
       </div>
       <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-        <Copy className="h-3.5 w-3.5" />{p.copy_count ?? 0}
+        <Copy className="h-3.5 w-3.5" /><LiveCount id={p.id} fallback={p.copy_count ?? 0} />
       </span>
       <CopyBtn p={p} defaultPin={defaultPin} compact />
       <BookmarkBtn slug={p.slug} />
