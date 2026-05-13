@@ -22,11 +22,13 @@ export function CopyCountsProvider({ children }: { children: ReactNode }) {
         { event: "UPDATE", schema: "public", table: "prompts" },
         (payload) => {
           const row = payload.new as { id?: string; copy_count?: number };
-          if (!row?.id || typeof row.copy_count !== "number") return;
+          const id = row?.id;
+          const next = row?.copy_count;
+          if (!id || typeof next !== "number") return;
           // Server value is authoritative — clear any local optimistic bump.
-          localBumpsRef.current[row.id] = 0;
+          localBumpsRef.current[id] = 0;
           setCounts((prev) =>
-            prev[row.id] === row.copy_count ? prev : { ...prev, [row.id]: row.copy_count! },
+            prev[id] === next ? prev : { ...prev, [id]: next },
           );
         },
       )
