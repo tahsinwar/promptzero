@@ -8,6 +8,7 @@ import {
   Grid3x3, List, Flame, ArrowRight, BookOpen, Copy as CopyIcon, Cpu, Lock,
 } from "lucide-react";
 import { PromptCard, PromptRow, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
+import { LoadError } from "@/components/load-error";
 import { useViewMode } from "@/hooks/use-bookmarks";
 import { applyPromptVisibility } from "@/lib/prompt-visibility";
 import { useAuth } from "@/hooks/use-auth";
