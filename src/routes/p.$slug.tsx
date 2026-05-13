@@ -218,8 +218,8 @@ function PromptDetail() {
             )}
 
             <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground print:hidden">
-              <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {prompt.view_count} views</span>
-              <span className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> {prompt.copy_count} copies</span>
+              <LiveStat icon={<Eye className="h-3.5 w-3.5" />} value={useViewCount(prompt.id, prompt.view_count ?? 0)} label="views" />
+              <LiveStat icon={<Copy className="h-3.5 w-3.5" />} value={useCopyCount(prompt.id, prompt.copy_count ?? 0)} label="copies" />
               <div className="ml-auto flex gap-2">
                 <button onClick={() => toggle(slug)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm border ${has(slug) ? "bg-primary/15 border-primary/40 text-primary" : "border-border hover:bg-secondary"}`}>
                   <Bookmark className="h-4 w-4" fill={has(slug) ? "currentColor" : "none"} />
