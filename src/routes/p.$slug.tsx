@@ -378,6 +378,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
   const TRUNCATE_TOKENS = 350;
   const isLong = tokens > TRUNCATE_TOKENS;
   const [expanded, setExpanded] = useState(false);
+  const contentRegionId = useId();
   const previewContent = useMemo(() => {
     if (!isLong) return content;
     // ~350 tokens ≈ 1400 chars; cut at last whitespace for cleanliness
@@ -480,6 +481,9 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
             onClick={() => { if (isLong && !expanded) setExpanded(true); }}
             role={isLong && !expanded ? "button" : undefined}
             tabIndex={isLong && !expanded ? 0 : undefined}
+            aria-expanded={isLong ? expanded : undefined}
+            aria-controls={isLong ? contentRegionId : undefined}
+            aria-label={isLong && !expanded ? "Expand prompt content" : undefined}
             onKeyDown={(e) => {
               if (isLong && !expanded && (e.key === "Enter" || e.key === " ")) {
                 e.preventDefault();
@@ -488,6 +492,7 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
             }}
           >
             <pre
+              id={contentRegionId}
               className="overflow-hidden px-4 pt-4 pb-6 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed transition-[max-height] duration-500 ease-in-out"
               style={{ maxHeight: isLong && !expanded ? "180px" : "9999px" }}
             >
@@ -503,13 +508,17 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
           {isLong && (
             <div className="border-t border-border px-4 py-2 flex justify-center">
               <button
+                type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
+                aria-expanded={expanded}
+                aria-controls={contentRegionId}
+                aria-label={expanded ? "Collapse prompt content" : `Expand prompt content (${tokens} tokens)`}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:underline transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {expanded ? (
-                  <>Show less <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform duration-300" /></>
+                  <><span>Show less</span> <ChevronDown aria-hidden className="h-3.5 w-3.5 rotate-180 transition-transform duration-300" /></>
                 ) : (
-                  <>See more ({tokens} tokens) <ChevronDown className="h-3.5 w-3.5 transition-transform duration-300" /></>
+                  <><span>See more ({tokens} tokens)</span> <ChevronDown aria-hidden className="h-3.5 w-3.5 transition-transform duration-300" /></>
                 )}
               </button>
             </div>
