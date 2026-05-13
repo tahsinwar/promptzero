@@ -475,19 +475,29 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
 
       {unlocked ? (
         <>
-          <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
-            {isLong && !expanded ? `${previewContent}…` : content}
-          </pre>
+          <div className="relative">
+            <div
+              className="grid transition-[grid-template-rows] duration-500 ease-in-out"
+              style={{ gridTemplateRows: isLong && !expanded ? "180px" : "1fr" }}
+            >
+              <pre className="overflow-hidden px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed min-h-0">
+                {content}
+              </pre>
+            </div>
+            {isLong && !expanded && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent" />
+            )}
+          </div>
           {isLong && (
             <div className="border-t border-border px-4 py-2 flex justify-center">
               <button
                 onClick={() => setExpanded((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline transition-colors"
               >
                 {expanded ? (
-                  <>Show less <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /></>
+                  <>Show less <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform duration-300" /></>
                 ) : (
-                  <>See more ({tokens} tokens) <ChevronDown className="h-3.5 w-3.5 transition-transform" /></>
+                  <>See more ({tokens} tokens) <ChevronDown className="h-3.5 w-3.5 transition-transform duration-300" /></>
                 )}
               </button>
             </div>
