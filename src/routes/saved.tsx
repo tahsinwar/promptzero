@@ -5,7 +5,7 @@ import { Bookmark, Plus, Search, MoreHorizontal, Pencil, Trash2, FolderPlus, X }
 import { supabase } from "@/integrations/supabase/client";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useFolders } from "@/hooks/use-folders";
-import { PromptCard, type PromptListItem } from "@/components/prompt-card";
+import { PromptCard, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 
 export const Route = createFileRoute("/saved")({
   component: SavedPage,
@@ -124,7 +124,9 @@ function SavedPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => <PromptCardSkeleton key={i} />)}
+            </div>
           ) : filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground">No prompts match this filter.</p>
           ) : (
