@@ -375,6 +375,16 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
   const [fillEnabled, setFillEnabled] = useState(true);
   const showFillToggle = fillAllowed && variables.length > 0 && unlocked;
   const showFillPanel = showFillToggle && fillEnabled;
+  const TRUNCATE_TOKENS = 350;
+  const isLong = tokens > TRUNCATE_TOKENS;
+  const [expanded, setExpanded] = useState(false);
+  const previewContent = useMemo(() => {
+    if (!isLong) return content;
+    // ~350 tokens ≈ 1400 chars; cut at last whitespace for cleanliness
+    const cut = content.slice(0, TRUNCATE_TOKENS * 4);
+    const lastBreak = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
+    return (lastBreak > TRUNCATE_TOKENS * 3 ? cut.slice(0, lastBreak) : cut).trimEnd();
+  }, [content, isLong]);
 
   const buildContent = () => {
     let c = content;
@@ -463,9 +473,31 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
         </div>
       )}
 
-      <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
-        {unlocked ? content : "🔒 Content locked — enter PIN to view"}
-      </pre>
+      {unlocked ? (
+        <>
+          <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+            {isLong && !expanded ? `${previewContent}…` : content}
+          </pre>
+          {isLong && (
+            <div className="border-t border-border px-4 py-2 flex justify-center">
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                {expanded ? (
+                  <>Show less <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /></>
+                ) : (
+                  <>See more ({tokens} tokens) <ChevronDown className="h-3.5 w-3.5 transition-transform" /></>
+                )}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <pre className="px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">
+          🔒 Content locked — enter PIN to view
+        </pre>
+      )}
     </div>
   );
 }
