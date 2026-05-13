@@ -155,8 +155,8 @@ function ChipSkeleton({ index = 0 }: { index?: number }) {
   return (
     <div
       aria-hidden
-      className="h-7 rounded-full border border-border bg-card/40 animate-pulse"
-      style={{ width: w }}
+      className="skeleton skeleton-card h-7 rounded-full border border-border/60"
+      style={{ width: w, animationDelay: `${index * 60}ms` }}
     />
   );
 }
