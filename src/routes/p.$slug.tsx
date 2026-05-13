@@ -475,15 +475,29 @@ function SubPromptCard({ sub, index, total, unlocked, promptId, onInfo }: { sub:
 
       {unlocked ? (
         <>
-          <div className="relative">
+          <div
+            className={`relative ${isLong && !expanded ? "cursor-pointer group" : ""}`}
+            onClick={() => { if (isLong && !expanded) setExpanded(true); }}
+            role={isLong && !expanded ? "button" : undefined}
+            tabIndex={isLong && !expanded ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (isLong && !expanded && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                setExpanded(true);
+              }
+            }}
+          >
             <pre
-              className="overflow-hidden px-4 py-4 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed transition-[max-height] duration-500 ease-in-out"
+              className="overflow-hidden px-4 pt-4 pb-6 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed transition-[max-height] duration-500 ease-in-out"
               style={{ maxHeight: isLong && !expanded ? "180px" : "9999px" }}
             >
               {content}
             </pre>
             {isLong && !expanded && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent" />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-card from-30% via-card/85 to-transparent transition-opacity duration-300 group-hover:from-card/95"
+              />
             )}
           </div>
           {isLong && (
