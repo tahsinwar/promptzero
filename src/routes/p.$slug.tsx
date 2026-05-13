@@ -16,6 +16,7 @@ import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
 import { sanitizeBasicHtml } from "@/lib/sanitize-html";
+import { useCopyCount, useViewCount } from "@/hooks/use-copy-counts";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
@@ -176,7 +177,12 @@ function PromptDetail() {
   const qaList = prompt.prompt_qa ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 print:py-0 print:max-w-full">
+    <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-8 print:py-0 print:max-w-full">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden print:hidden" aria-hidden>
+        <div className="orb orb-purple absolute -top-20 -left-20 h-80 w-80 rounded-full bg-primary/20 blur-3xl" />
+        <div className="orb orb-cyan absolute top-40 -right-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+        <div className="orb orb-pink absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-fuchsia-500/15 blur-3xl" />
+      </div>
       <PinLockModal
         promptId={prompt.id}
         pinHash={prompt.pin_hash}
@@ -188,9 +194,19 @@ function PromptDetail() {
       <ShareModal open={shareOpen} url={typeof window !== "undefined" ? window.location.href : ""} title={prompt.title} onClose={() => setShareOpen(false)} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0">
+        <motion.div
+          className="min-w-0"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
           {/* Header */}
-          <header className="print:block">
+          <motion.header
+            className="print:block"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: "easeOut" }}
+          >
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {prompt.categories && (
                 <span className="px-2.5 py-1 rounded-md font-medium" style={{ backgroundColor: `${prompt.categories.color}20`, color: prompt.categories.color }}>
@@ -212,8 +228,8 @@ function PromptDetail() {
             )}
 
             <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground print:hidden">
-              <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {prompt.view_count} views</span>
-              <span className="inline-flex items-center gap-1"><Copy className="h-3.5 w-3.5" /> {prompt.copy_count} copies</span>
+              <LiveStat icon={<Eye className="h-3.5 w-3.5" />} value={useViewCount(prompt.id, prompt.view_count ?? 0)} label="views" />
+              <LiveStat icon={<Copy className="h-3.5 w-3.5" />} value={useCopyCount(prompt.id, prompt.copy_count ?? 0)} label="copies" />
               <div className="ml-auto flex gap-2">
                 <button onClick={() => toggle(slug)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm border ${has(slug) ? "bg-primary/15 border-primary/40 text-primary" : "border-border hover:bg-secondary"}`}>
                   <Bookmark className="h-4 w-4" fill={has(slug) ? "currentColor" : "none"} />
@@ -224,14 +240,19 @@ function PromptDetail() {
                 </button>
               </div>
             </div>
-          </header>
+          </motion.header>
 
           {/* Locked state — replaces tabs/content until unlocked */}
           {prompt.is_locked && !unlocked ? (
             <LockedPromptState onUnlockClick={() => setPinModalOpen(true)} />
           ) : (
           <>
-          <div className="mt-6 print:hidden">
+          <motion.div
+            className="mt-6 print:hidden"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.12, ease: "easeOut" }}
+          >
             <div className="flex gap-1 border-b border-border overflow-x-auto">
               {TABS.map((t) => (
                 <button key={t} onClick={() => setTab(t)}
@@ -240,9 +261,15 @@ function PromptDetail() {
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="mt-6 print:mt-2">
+          <motion.div
+            key={tab}
+            className="mt-6 print:mt-2"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+          >
             <div className={tab === "Prompt" ? "" : "hidden print:block"}>
               <PromptTab prompt={prompt} unlocked={unlocked} />
             </div>
@@ -251,13 +278,19 @@ function PromptDetail() {
             {tab === "Links" && <LinksTab links={links} />}
             {tab === "Q&A" && <QATab promptId={prompt.id} qa={qaList} visitorQs={data.visitorQs} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
             {tab === "Comments" && <CommentsTab promptId={prompt.id} comments={data.comments} autoApprove={!!settings?.comment_auto_approve} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
-          </div>
+          </motion.div>
           </>
           )}
-        </div>
+        </motion.div>
 
         {/* Sidebar */}
-        <Sidebar prompt={prompt} ratings={data.ratings} tags={tags} slug={slug} />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.18, ease: "easeOut" }}
+        >
+          <Sidebar prompt={prompt} ratings={data.ratings} tags={tags} slug={slug} />
+        </motion.div>
       </div>
 
       <style>{`
@@ -908,5 +941,28 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
         </div>
       )}
     </aside>
+  );
+}
+
+function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {icon}
+      <span className="relative inline-block tabular-nums">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={value}
+            initial={{ y: -6, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 6, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-block"
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      {" "}{label}
+    </span>
   );
 }
