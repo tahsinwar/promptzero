@@ -36,7 +36,9 @@ function Browse() {
         supabase.from("prompts").select("id,title,slug,description,content,view_count,copy_count,difficulty,ai_models,is_featured,is_locked,rating_avg,pin_hash,category_id,categories(name,color)"),
         { includeLocked: isAdmin },
       );
-      return (await q.order("created_at", { ascending: false })).data ?? [];
+      const { data, error } = await q.order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
