@@ -127,7 +127,7 @@ echo ============================================================
 echo    DEPLOY SUCCESSFUL!
 echo ============================================================
 echo.
-echo    Live URL:  https://tanstack-start-app.tahsinwap.workers.dev
+echo    Live URL:  https://prompts.tahsincc.workers.dev
 echo    Custom:    https://promptzero.lovable.app
 echo.
 echo ============================================================
