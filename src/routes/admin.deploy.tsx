@@ -9,8 +9,8 @@ import {
 
 const GITHUB_OWNER = "tahsinwar";
 const GITHUB_REPO = "promptzero";
-const LIVE_URL = "https://tanstack-start-app.tahsinwap.workers.dev";
-const CUSTOM_URL = "https://promptzero.lovable.app";
+const LIVE_URL = "https://prompts.tahsincc.workers.dev";
+const CUSTOM_URL = "https://prompts.tahsin.cc";
 
 export const Route = createFileRoute("/admin/deploy")({
   component: DeployDashboard,
