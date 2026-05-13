@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Lock } from "lucide-react";
 import { motion } from "framer-motion";
-import { PromptCard, type PromptListItem } from "@/components/prompt-card";
+import { PromptCard, PromptCardSkeleton, type PromptListItem } from "@/components/prompt-card";
 import { applyPromptVisibility, isPromptVisible } from "@/lib/prompt-visibility";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -26,7 +26,7 @@ function Browse() {
     queryFn: async () => (await supabase.from("categories").select("*").order("name")).data ?? [],
   });
 
-  const { data: prompts } = useQuery({
+  const { data: prompts, isLoading: loadingPrompts } = useQuery({
     queryKey: ["all-prompts", { admin: isAdmin }],
     queryFn: async () => {
       // Admins fetch with locked included so the toggle can reveal them.
@@ -107,12 +107,15 @@ function Browse() {
       </div>
 
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((p, i) => (
+        {loadingPrompts && Array.from({ length: 9 }).map((_, i) => (
+          <PromptCardSkeleton key={`sk-${i}`} />
+        ))}
+        {!loadingPrompts && filtered.map((p, i) => (
           <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
             <PromptCard p={p as unknown as PromptListItem} defaultPin={defaultPin} />
           </motion.div>
         ))}
-        {filtered.length === 0 && (
+        {!loadingPrompts && filtered.length === 0 && (
           <div className="col-span-full vault-card rounded-xl p-10 text-center text-muted-foreground">No prompts match your filters.</div>
         )}
       </div>
