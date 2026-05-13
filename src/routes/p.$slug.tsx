@@ -1,6 +1,6 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -972,24 +972,90 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
   );
 }
 
+/**
+ * Throttle a numeric value so rapid realtime updates don't trigger a flicker
+ * cascade. We always settle on the latest value within `delay` ms, but skip
+ * intermediate frames that would queue overlapping flip animations.
+ */
+function useThrottledNumber(value: number, delay = 220) {
+  const [shown, setShown] = useState(value);
+  const lastUpdateRef = useRef(0);
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const now = Date.now();
+    const since = now - lastUpdateRef.current;
+    if (pendingRef.current) {
+      clearTimeout(pendingRef.current);
+      pendingRef.current = null;
+    }
+    if (since >= delay) {
+      lastUpdateRef.current = now;
+      setShown(value);
+    } else {
+      pendingRef.current = setTimeout(() => {
+        lastUpdateRef.current = Date.now();
+        setShown(value);
+      }, delay - since);
+    }
+    return () => {
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+    };
+  }, [value, delay]);
+
+  return shown;
+}
+
+/**
+ * Per-digit rolling counter. Only digits that actually change re-animate, so
+ * "1234 → 1235" rolls just the last digit instead of flashing the whole
+ * number. Direction-aware: increases roll up, decreases roll down.
+ */
+function RollingNumber({ value }: { value: number }) {
+  const display = useThrottledNumber(value);
+  const prevRef = useRef(display);
+  const direction = display >= prevRef.current ? 1 : -1;
+  useEffect(() => { prevRef.current = display; }, [display]);
+
+  const str = Math.max(0, Math.floor(display)).toLocaleString();
+  const chars = str.split("");
+
+  return (
+    <span className="inline-flex tabular-nums overflow-hidden align-baseline" aria-label={String(display)}>
+      {chars.map((ch, i) => {
+        // Non-digit separators (commas) don't animate — keeps grouping stable
+        if (!/\d/.test(ch)) {
+          return <span key={`s-${i}`} aria-hidden className="inline-block">{ch}</span>;
+        }
+        // Position-from-right keys keep digit columns stable across length changes
+        const posKey = chars.length - i;
+        return (
+          <span key={`d-${posKey}`} className="relative inline-block h-[1em] leading-none overflow-hidden">
+            <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+              <motion.span
+                key={ch}
+                custom={direction}
+                initial={{ y: direction > 0 ? "100%" : "-100%", opacity: 0 }}
+                animate={{ y: "0%", opacity: 1 }}
+                exit={{ y: direction > 0 ? "-100%" : "100%", opacity: 0 }}
+                transition={{ type: "tween", duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+                className="inline-block"
+              >
+                {ch}
+              </motion.span>
+            </AnimatePresence>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
   return (
     <span className="inline-flex items-center gap-1">
       {icon}
-      <span className="relative inline-block tabular-nums">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={value}
-            initial={{ y: -6, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 6, opacity: 0 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="inline-block"
-          >
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </span>
+      <RollingNumber value={value} />
       {" "}{label}
     </span>
   );
