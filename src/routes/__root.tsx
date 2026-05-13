@@ -3,6 +3,7 @@ import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { CopyCountsProvider } from "@/hooks/use-copy-counts";
@@ -81,11 +82,13 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <CopyCountsProvider>
-            <SiteLayout>
-              <Outlet />
-            </SiteLayout>
-            <GlobalLoader />
-            <Toaster richColors position="bottom-right" />
+            <MotionConfig reducedMotion="user">
+              <SiteLayout>
+                <Outlet />
+              </SiteLayout>
+              <GlobalLoader />
+              <Toaster richColors position="bottom-right" />
+            </MotionConfig>
           </CopyCountsProvider>
         </AuthProvider>
       </ThemeProvider>
