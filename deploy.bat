@@ -62,31 +62,31 @@ if defined STASHED (
 REM ---------- STEP 2: Install dependencies if needed ----------
 set "NEED_INSTALL="
 if not exist "node_modules" set "NEED_INSTALL=1"
+if not defined NEED_INSTALL goto :check_hash
+goto :do_install
 
-REM Detect package.json / lockfile changes vs last install marker
-if exist "node_modules\.deploy-install-hash" (
-    for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
-    set /p OLD_HASH=<node_modules\.deploy-install-hash
-    if not "!PKG_HASH!"=="!OLD_HASH!" set "NEED_INSTALL=1"
-) else (
-    if exist "node_modules" set "NEED_INSTALL=1"
-)
+:check_hash
+if not exist "node_modules\.deploy-install-hash" goto :do_install
+for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
+set /p OLD_HASH=<node_modules\.deploy-install-hash
+if not "!PKG_HASH!"=="!OLD_HASH!" goto :do_install
+echo [2/3] Dependencies up to date, skipping npm install.
+goto :after_install
 
-if defined NEED_INSTALL (
-    echo [2/3] Installing dependencies (package.json changed or first run)...
-    echo ------------------------------------------------------------
-    call npm install
-    if errorlevel 1 (
-        color 0C
-        echo [ERROR] npm install failed!
-        pause
-        exit /b 1
-    )
-    for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
-    > node_modules\.deploy-install-hash echo !PKG_HASH!
-) else (
-    echo [2/3] Dependencies up to date, skipping npm install.
+:do_install
+echo [2/3] Installing dependencies - package.json changed or first run...
+echo ------------------------------------------------------------
+call npm install
+if errorlevel 1 (
+    color 0C
+    echo [ERROR] npm install failed!
+    pause
+    exit /b 1
 )
+for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
+> node_modules\.deploy-install-hash echo !PKG_HASH!
+
+:after_install
 echo.
 
 REM ---------- STEP 3: Deploy ----------
