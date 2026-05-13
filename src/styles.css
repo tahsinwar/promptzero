@@ -246,6 +246,27 @@
   50% { background-position: 100% 50%; }
 }
 
+/* Pause expensive ambient animations + skip tab/UI transitions while the
+   page is hidden or unfocused. Toggled by usePauseOnHidden(). */
+html[data-page-hidden="true"] .orb,
+html[data-page-hidden="true"] .orb-primary,
+html[data-page-hidden="true"] .orb-accent,
+html[data-page-hidden="true"] .orb-pink,
+html[data-page-hidden="true"] .shimmer-badge::after,
+html[data-page-hidden="true"] .gradient-text-animated,
+html[data-page-hidden="true"] .skeleton,
+html[data-page-hidden="true"] .skeleton::after,
+html[data-page-hidden="true"] .skeleton-card {
+  animation-play-state: paused !important;
+}
+html[data-page-hidden="true"] [role="tab"],
+html[data-page-hidden="true"] [role="tabpanel"],
+html[data-page-hidden="true"] [data-state],
+html[data-page-hidden="true"] [data-radix-collection-item] {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+
 @layer utilities {
   .prompt-rich { line-height: 1.55; }
   .prompt-rich strong, .prompt-rich b { font-weight: 600; color: var(--color-foreground); }
