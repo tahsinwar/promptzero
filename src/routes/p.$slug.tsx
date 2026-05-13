@@ -130,20 +130,20 @@ function PromptDetail() {
     return (
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="space-y-4">
-            <div className="h-5 w-24 rounded bg-muted/60 animate-pulse" />
-            <div className="h-9 w-3/4 rounded bg-muted/60 animate-pulse" />
-            <div className="h-4 w-full rounded bg-muted/40 animate-pulse" />
-            <div className="h-4 w-2/3 rounded bg-muted/40 animate-pulse" />
-            <div className="vault-card rounded-2xl p-6 space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-3 rounded bg-muted/40 animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+          <div className="skeleton-card space-y-4">
+            <div className="skeleton h-5 w-24" />
+            <div className="skeleton h-9 w-3/4" />
+            <div className="skeleton h-4 w-full" />
+            <div className="skeleton h-4 w-2/3" />
+            <div className="vault-card rounded-2xl p-6 space-y-2.5">
+              {[92, 78, 88, 70, 82, 64].map((w, i) => (
+                <div key={i} className="skeleton h-3" style={{ width: `${w}%` }} />
               ))}
             </div>
           </div>
-          <div className="space-y-3">
-            <div className="vault-card rounded-2xl p-4 h-32 animate-pulse" />
-            <div className="vault-card rounded-2xl p-4 h-40 animate-pulse" />
+          <div className="skeleton-card space-y-3">
+            <div className="skeleton vault-card rounded-2xl h-32" />
+            <div className="skeleton vault-card rounded-2xl h-40" />
           </div>
         </div>
       </div>
