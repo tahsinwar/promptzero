@@ -916,3 +916,26 @@ function Sidebar({ prompt, ratings, tags, slug }: { prompt: any; ratings: any[];
     </aside>
   );
 }
+
+function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {icon}
+      <span className="relative inline-block tabular-nums">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={value}
+            initial={{ y: -6, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 6, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-block"
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      {" "}{label}
+    </span>
+  );
+}
