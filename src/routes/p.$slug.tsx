@@ -1006,10 +1006,67 @@ function useThrottledNumber(value: number, delay = 220) {
   return shown;
 }
 
+// One shared formatter — locale-stable group + decimal separators across renders
+const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+
+type NumberPart = {
+  /** position-from-right key for digit columns; stable across length changes */
+  key: string;
+  /** rendered character */
+  char: string;
+  /** true => animate as a flipping digit; false => render statically (commas, dots, minus) */
+  isDigit: boolean;
+};
+
+function toStableParts(value: number): NumberPart[] {
+  const parts = numberFormatter.formatToParts(value);
+  const out: NumberPart[] = [];
+  // Walk integer + decimal independently so position keys stay anchored at the
+  // decimal point — a number growing past 9 → 10 doesn't shift fractional digits.
+  let intDigits: string[] = [];
+  let fracDigits: string[] = [];
+  let groupSep = "";
+  let decSep = "";
+  let sign = "";
+  for (const p of parts) {
+    if (p.type === "integer") intDigits.push(...p.value.split(""));
+    else if (p.type === "fraction") fracDigits.push(...p.value.split(""));
+    else if (p.type === "group") groupSep = p.value;
+    else if (p.type === "decimal") decSep = p.value;
+    else if (p.type === "minusSign" || p.type === "plusSign") sign = p.value;
+  }
+
+  if (sign) out.push({ key: "sign", char: sign, isDigit: false });
+
+  // Integer part — emit left→right, but key each digit by its position from the
+  // decimal point so the rightmost integer column always keeps the same key.
+  const intLen = intDigits.length;
+  for (let i = 0; i < intLen; i++) {
+    const posFromDec = intLen - i; // 1-indexed (units = 1, tens = 2, ...)
+    out.push({ key: `i${posFromDec}`, char: intDigits[i], isDigit: true });
+    // Insert a static group separator at every 3-digit boundary (locale-aware char)
+    const remaining = intLen - i - 1;
+    if (groupSep && remaining > 0 && remaining % 3 === 0) {
+      out.push({ key: `g${remaining}`, char: groupSep, isDigit: false });
+    }
+  }
+
+  if (fracDigits.length) {
+    out.push({ key: "dec", char: decSep || ".", isDigit: false });
+    for (let i = 0; i < fracDigits.length; i++) {
+      out.push({ key: `f${i + 1}`, char: fracDigits[i], isDigit: true });
+    }
+  }
+
+  return out;
+}
+
 /**
- * Per-digit rolling counter. Only digits that actually change re-animate, so
- * "1234 → 1235" rolls just the last digit instead of flashing the whole
- * number. Direction-aware: increases roll up, decreases roll down.
+ * Per-digit rolling counter built on Intl.NumberFormat so locale-correct group
+ * and decimal separators stay fixed across updates. Negative sign, decimal
+ * point, and grouping commas are rendered statically; only the digit columns
+ * roll, anchored from the decimal point so growth from 9→10→100 doesn't
+ * shift fractional digits.
  */
 function RollingNumber({ value }: { value: number }) {
   const display = useThrottledNumber(value);
@@ -1017,23 +1074,22 @@ function RollingNumber({ value }: { value: number }) {
   const direction = display >= prevRef.current ? 1 : -1;
   useEffect(() => { prevRef.current = display; }, [display]);
 
-  const str = Math.max(0, Math.floor(display)).toLocaleString();
-  const chars = str.split("");
+  const parts = toStableParts(display);
 
   return (
-    <span className="inline-flex tabular-nums overflow-hidden align-baseline" aria-label={String(display)}>
-      {chars.map((ch, i) => {
-        // Non-digit separators (commas) don't animate — keeps grouping stable
-        if (!/\d/.test(ch)) {
-          return <span key={`s-${i}`} aria-hidden className="inline-block">{ch}</span>;
-        }
-        // Position-from-right keys keep digit columns stable across length changes
-        const posKey = chars.length - i;
-        return (
-          <span key={`d-${posKey}`} className="relative inline-block h-[1em] leading-none overflow-hidden">
+    <span
+      className="inline-flex tabular-nums align-baseline"
+      aria-label={numberFormatter.format(display)}
+    >
+      {parts.map((p) =>
+        p.isDigit ? (
+          <span
+            key={p.key}
+            className="relative inline-block h-[1em] leading-none overflow-hidden"
+          >
             <AnimatePresence mode="popLayout" initial={false} custom={direction}>
               <motion.span
-                key={ch}
+                key={p.char}
                 custom={direction}
                 initial={{ y: direction > 0 ? "100%" : "-100%", opacity: 0 }}
                 animate={{ y: "0%", opacity: 1 }}
@@ -1041,12 +1097,16 @@ function RollingNumber({ value }: { value: number }) {
                 transition={{ type: "tween", duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
                 className="inline-block"
               >
-                {ch}
+                {p.char}
               </motion.span>
             </AnimatePresence>
           </span>
-        );
-      })}
+        ) : (
+          <span key={p.key} aria-hidden className="inline-block">
+            {p.char}
+          </span>
+        ),
+      )}
     </span>
   );
 }
