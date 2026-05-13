@@ -194,9 +194,19 @@ function PromptDetail() {
       <ShareModal open={shareOpen} url={typeof window !== "undefined" ? window.location.href : ""} title={prompt.title} onClose={() => setShareOpen(false)} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0">
+        <motion.div
+          className="min-w-0"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
           {/* Header */}
-          <header className="print:block">
+          <motion.header
+            className="print:block"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: "easeOut" }}
+          >
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {prompt.categories && (
                 <span className="px-2.5 py-1 rounded-md font-medium" style={{ backgroundColor: `${prompt.categories.color}20`, color: prompt.categories.color }}>
@@ -230,14 +240,19 @@ function PromptDetail() {
                 </button>
               </div>
             </div>
-          </header>
+          </motion.header>
 
           {/* Locked state — replaces tabs/content until unlocked */}
           {prompt.is_locked && !unlocked ? (
             <LockedPromptState onUnlockClick={() => setPinModalOpen(true)} />
           ) : (
           <>
-          <div className="mt-6 print:hidden">
+          <motion.div
+            className="mt-6 print:hidden"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.12, ease: "easeOut" }}
+          >
             <div className="flex gap-1 border-b border-border overflow-x-auto">
               {TABS.map((t) => (
                 <button key={t} onClick={() => setTab(t)}
@@ -246,9 +261,15 @@ function PromptDetail() {
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="mt-6 print:mt-2">
+          <motion.div
+            key={tab}
+            className="mt-6 print:mt-2"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+          >
             <div className={tab === "Prompt" ? "" : "hidden print:block"}>
               <PromptTab prompt={prompt} unlocked={unlocked} />
             </div>
@@ -257,13 +278,19 @@ function PromptDetail() {
             {tab === "Links" && <LinksTab links={links} />}
             {tab === "Q&A" && <QATab promptId={prompt.id} qa={qaList} visitorQs={data.visitorQs} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
             {tab === "Comments" && <CommentsTab promptId={prompt.id} comments={data.comments} autoApprove={!!settings?.comment_auto_approve} onSubmitted={() => qc.invalidateQueries({ queryKey: ["prompt-full", slug] })} />}
-          </div>
+          </motion.div>
           </>
           )}
-        </div>
+        </motion.div>
 
         {/* Sidebar */}
-        <Sidebar prompt={prompt} ratings={data.ratings} tags={tags} slug={slug} />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.18, ease: "easeOut" }}
+        >
+          <Sidebar prompt={prompt} ratings={data.ratings} tags={tags} slug={slug} />
+        </motion.div>
       </div>
 
       <style>{`
