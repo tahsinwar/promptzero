@@ -142,6 +142,16 @@
       linear-gradient(90deg, oklch(0.30 0.04 270 / 0.3) 1px, transparent 1px);
     background-size: 48px 48px;
   }
+  .prompt-rich { line-height: 1.55; }
+  .prompt-rich strong, .prompt-rich b { font-weight: 600; color: var(--color-foreground); }
+  .prompt-rich em, .prompt-rich i { font-style: italic; }
+  .prompt-rich u { text-decoration: underline; }
+  .prompt-rich a { color: var(--color-primary); text-decoration: underline; }
+  .prompt-rich p { margin: 0.25rem 0; }
+  .prompt-rich ul, .prompt-rich ol { margin: 0.25rem 0 0.25rem 1.25rem; }
+  .prompt-rich ul { list-style: disc; }
+  .prompt-rich ol { list-style: decimal; }
+  .prompt-rich code { background: var(--color-secondary); padding: 0 0.25rem; border-radius: 4px; font-size: 0.9em; }
 }
 
 @media print {
