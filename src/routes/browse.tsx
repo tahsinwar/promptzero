@@ -22,7 +22,7 @@ function Browse() {
   const [showLockedRaw, setShowLocked] = useState(false);
   const showLocked = isAdmin && showLockedRaw;
 
-  const { data: cats } = useQuery({
+  const { data: cats, isLoading: loadingCats } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => (await supabase.from("categories").select("*").order("name")).data ?? [],
   });
@@ -80,9 +80,11 @@ function Browse() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Chip active={cat === null} onClick={() => setCat(null)}>All categories</Chip>
-          {cats?.map((c) => (
-            <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color ?? undefined}>{c.name}</Chip>
-          ))}
+          {loadingCats && !cats
+            ? Array.from({ length: 6 }).map((_, i) => <ChipSkeleton key={i} index={i} />)
+            : cats?.map((c) => (
+                <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)} color={c.color ?? undefined}>{c.name}</Chip>
+              ))}
         </div>
         <div className="flex flex-wrap gap-2">
           {(["beginner", "intermediate", "advanced"] as const).map((d) => (
