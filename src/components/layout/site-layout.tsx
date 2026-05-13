@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Vault, Search, Sun, Moon, ShieldCheck, Sparkles, Bookmark, Github, Twitter, Linkedin, Mail, Heart } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -35,6 +35,21 @@ function Navbar() {
   const { data: settings } = useSiteSettings();
   const [q, setQ] = useState("");
   const navigate = useNavigate();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(typeof navigator !== "undefined" && /Mac/i.test(navigator.platform));
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const siteName = settings?.site_name || "Prompt Vault";
   const logoUrl = settings?.logo_url;
@@ -61,8 +76,16 @@ function Navbar() {
         <form onSubmit={onSearch} className="flex-1 max-w-xl mx-2">
           <label className="relative block">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search prompts…"
-              className="w-full rounded-lg border border-border bg-card/60 pl-10 pr-3 py-2 text-sm outline-none focus:border-primary transition-colors" />
+            <input
+              ref={searchRef}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search prompts…"
+              className="w-full rounded-lg border border-border bg-card/60 pl-10 pr-16 py-2 text-sm outline-none focus:border-primary transition-colors"
+            />
+            <kbd className="hidden sm:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center gap-0.5 rounded border border-border bg-background/80 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground pointer-events-none">
+              {isMac ? "⌘" : "Ctrl"}K
+            </kbd>
           </label>
         </form>
 
