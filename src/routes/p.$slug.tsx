@@ -15,6 +15,7 @@ import { getSessionId } from "@/lib/slug";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { PinLockModal, isUnlocked } from "@/components/pin-lock-modal";
 import { ShareModal } from "@/components/share-modal";
+import { sanitizeBasicHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PromptDetail,
@@ -203,7 +204,12 @@ function PromptDetail() {
               <span className="px-2 py-1 rounded-md bg-primary/15 text-primary">v{data.versionCount}</span>
             </div>
             <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">{prompt.title}</h1>
-            {prompt.description && <p className="mt-2 text-muted-foreground">{prompt.description}</p>}
+            {prompt.description && (
+              <div
+                className="mt-2 text-muted-foreground prompt-rich"
+                dangerouslySetInnerHTML={{ __html: sanitizeBasicHtml(prompt.description) }}
+              />
+            )}
 
             <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground print:hidden">
               <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {prompt.view_count} views</span>
