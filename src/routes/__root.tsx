@@ -5,6 +5,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { CopyCountsProvider } from "@/hooks/use-copy-counts";
 import { SiteLayout } from "@/components/layout/site-layout";
 import { GlobalLoader } from "@/components/global-loader";
 import appCss from "../styles.css?url";
@@ -77,11 +78,13 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <SiteLayout>
-            <Outlet />
-          </SiteLayout>
-          <GlobalLoader />
-          <Toaster richColors position="bottom-right" />
+          <CopyCountsProvider>
+            <SiteLayout>
+              <Outlet />
+            </SiteLayout>
+            <GlobalLoader />
+            <Toaster richColors position="bottom-right" />
+          </CopyCountsProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
