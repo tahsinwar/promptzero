@@ -4,32 +4,37 @@ import { supabase } from "@/integrations/supabase/client";
 type CountMap = Record<string, number>;
 
 type Ctx = {
-  get: (id: string, fallback: number) => number;
+  getCopy: (id: string, fallback: number) => number;
+  getView: (id: string, fallback: number) => number;
   bump: (id: string) => void;
 };
 
-const CopyCountsContext = createContext<Ctx | null>(null);
+const CountsContext = createContext<Ctx | null>(null);
 
 export function CopyCountsProvider({ children }: { children: ReactNode }) {
   const [counts, setCounts] = useState<CountMap>({});
+  const [views, setViews] = useState<CountMap>({});
   const localBumpsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     const channel = supabase
-      .channel("prompts-copy-counts")
+      .channel("prompts-live-counts")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "prompts" },
         (payload) => {
-          const row = payload.new as { id?: string; copy_count?: number };
+          const row = payload.new as { id?: string; copy_count?: number; view_count?: number };
           const id = row?.id;
-          const next = row?.copy_count;
-          if (!id || typeof next !== "number") return;
-          // Server value is authoritative — clear any local optimistic bump.
-          localBumpsRef.current[id] = 0;
-          setCounts((prev) =>
-            prev[id] === next ? prev : { ...prev, [id]: next },
-          );
+          if (!id) return;
+          if (typeof row.copy_count === "number") {
+            localBumpsRef.current[id] = 0;
+            const c = row.copy_count;
+            setCounts((prev) => (prev[id] === c ? prev : { ...prev, [id]: c }));
+          }
+          if (typeof row.view_count === "number") {
+            const v = row.view_count;
+            setViews((prev) => (prev[id] === v ? prev : { ...prev, [id]: v }));
+          }
         },
       )
       .subscribe();
@@ -38,31 +43,34 @@ export function CopyCountsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const get = useCallback(
-    (id: string, fallback: number) => {
-      const base = counts[id] ?? fallback;
-      return base + (localBumpsRef.current[id] ?? 0);
-    },
+  const getCopy = useCallback(
+    (id: string, fallback: number) => (counts[id] ?? fallback) + (localBumpsRef.current[id] ?? 0),
     [counts],
+  );
+  const getView = useCallback(
+    (id: string, fallback: number) => views[id] ?? fallback,
+    [views],
   );
 
   const bump = useCallback((id: string) => {
     localBumpsRef.current[id] = (localBumpsRef.current[id] ?? 0) + 1;
-    // Force a re-render so consumers reflect the optimistic bump.
     setCounts((prev) => ({ ...prev }));
   }, []);
 
-  return (
-    <CopyCountsContext.Provider value={{ get, bump }}>{children}</CopyCountsContext.Provider>
-  );
+  return <CountsContext.Provider value={{ getCopy, getView, bump }}>{children}</CountsContext.Provider>;
 }
 
 export function useCopyCount(id: string, fallback: number) {
-  const ctx = useContext(CopyCountsContext);
-  return ctx ? ctx.get(id, fallback) : fallback;
+  const ctx = useContext(CountsContext);
+  return ctx ? ctx.getCopy(id, fallback) : fallback;
+}
+
+export function useViewCount(id: string, fallback: number) {
+  const ctx = useContext(CountsContext);
+  return ctx ? ctx.getView(id, fallback) : fallback;
 }
 
 export function useBumpCopyCount() {
-  const ctx = useContext(CopyCountsContext);
+  const ctx = useContext(CountsContext);
   return ctx?.bump ?? (() => {});
 }
