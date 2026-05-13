@@ -172,40 +172,79 @@ function HomePage() {
     <div>
       {/* HERO */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 grid-bg opacity-30" />
-        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-              <Sparkles className="h-3.5 w-3.5" /> {tagline}
-            </span>
-            <h1 className="mt-6 text-5xl sm:text-7xl font-bold tracking-tight">
-              {siteName.split(" ").slice(0, -1).join(" ") || siteName}
-              {siteName.includes(" ") && <> <span className="gradient-text text-glow">{siteName.split(" ").slice(-1)[0]}</span></>}
-            </h1>
-            <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
-              Discover, copy and remix the best AI prompts. Curated for ChatGPT, Claude, Midjourney and more.
-            </p>
+        {/* Animated background layers */}
+        <div className="absolute inset-0 grid-bg opacity-20" />
+        <div aria-hidden className="orb orb-primary -top-32 -left-20 h-[400px] w-[400px]" />
+        <div aria-hidden className="orb orb-accent top-20 -right-24 h-[450px] w-[450px]" />
+        <div aria-hidden className="orb orb-pink bottom-0 left-1/3 h-[350px] w-[350px]" />
 
-            <form onSubmit={submitHero} className="mt-10 mx-auto max-w-2xl">
+        <div className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
+          <motion.span
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="shimmer-badge inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary backdrop-blur-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> {tagline}
+          </motion.span>
+
+          <h1 className="mt-6 text-5xl sm:text-7xl font-bold tracking-tight">
+            {(() => {
+              const words = siteName.split(" ");
+              const lastIdx = words.length - 1;
+              return words.map((w, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{ duration: 0.7, delay: 0.2 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
+                  className={`inline-block ${i === lastIdx && words.length > 1 ? "gradient-text-animated text-glow" : ""}`}
+                >
+                  {w}{i < lastIdx ? "\u00A0" : ""}
+                </motion.span>
+              ));
+            })()}
+          </h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground"
+          >
+            Discover, copy and remix the best AI prompts. Curated for ChatGPT, Claude, Midjourney and more.
+          </motion.p>
+
+          <motion.form
+            onSubmit={submitHero}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.65 }}
+            className="mt-10 mx-auto max-w-2xl"
+          >
               <label className="relative block">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   value={heroQ}
                   onChange={(e) => setHeroQ(e.target.value)}
                   placeholder="Search prompts, tools, use cases…"
-                  className="w-full rounded-2xl border border-border bg-card/70 backdrop-blur pl-14 pr-32 py-5 text-base outline-none focus:border-primary shadow-glow/40 transition-colors"
+                  className="w-full rounded-2xl border border-border bg-card/70 backdrop-blur-xl pl-14 pr-32 py-5 text-base outline-none focus:border-primary focus:shadow-glow transition-all"
                 />
                 <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition-opacity">
                   Search
                 </button>
               </label>
-            </form>
+          </motion.form>
 
-            <div className="mt-12 grid grid-cols-3 gap-3 sm:gap-6 max-w-xl mx-auto">
-              <Stat label="Prompts" value={stats?.prompts ?? "—"} icon={BookOpen} />
-              <Stat label="AI Tools" value={stats?.tools ?? "—"} icon={Cpu} />
-              <Stat label="Total Copies" value={stats?.copies ?? "—"} icon={CopyIcon} />
-            </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="mt-12 grid grid-cols-3 gap-3 sm:gap-6 max-w-xl mx-auto"
+          >
+            <Stat label="Prompts" value={stats?.prompts ?? "—"} icon={BookOpen} />
+            <Stat label="AI Tools" value={stats?.tools ?? "—"} icon={Cpu} />
+            <Stat label="Total Copies" value={stats?.copies ?? "—"} icon={CopyIcon} />
           </motion.div>
         </div>
       </section>
