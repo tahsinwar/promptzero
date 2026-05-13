@@ -60,8 +60,20 @@ if defined STASHED (
 )
 
 REM ---------- STEP 2: Install dependencies if needed ----------
-if not exist "node_modules" (
-    echo [2/3] node_modules not found, running npm install...
+set "NEED_INSTALL="
+if not exist "node_modules" set "NEED_INSTALL=1"
+
+REM Detect package.json / lockfile changes vs last install marker
+if exist "node_modules\.deploy-install-hash" (
+    for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
+    set /p OLD_HASH=<node_modules\.deploy-install-hash
+    if not "!PKG_HASH!"=="!OLD_HASH!" set "NEED_INSTALL=1"
+) else (
+    if exist "node_modules" set "NEED_INSTALL=1"
+)
+
+if defined NEED_INSTALL (
+    echo [2/3] Installing dependencies (package.json changed or first run)...
     echo ------------------------------------------------------------
     call npm install
     if errorlevel 1 (
@@ -70,8 +82,10 @@ if not exist "node_modules" (
         pause
         exit /b 1
     )
+    for /f "delims=" %%H in ('certutil -hashfile package.json MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH=%%H"
+    > node_modules\.deploy-install-hash echo !PKG_HASH!
 ) else (
-    echo [2/3] Dependencies already installed, skipping npm install.
+    echo [2/3] Dependencies up to date, skipping npm install.
 )
 echo.
 
