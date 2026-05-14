@@ -142,7 +142,7 @@ function Page() {
       {tab === "comments" ? (
         <>
           <div className="flex gap-2 mb-4">
-            {(["all", "pending", "approved"] as const).map((f) => (
+            {(["all", "pending", "approved", "spam"] as const).map((f) => (
               <Link
                 key={f}
                 to="/admin/comments"
@@ -151,14 +151,36 @@ function Page() {
               >
                 {f[0].toUpperCase() + f.slice(1)}
                 {f === "pending" && pendingC > 0 && <span className="ml-1.5">({pendingC})</span>}
+                {f === "spam" && spamCount > 0 && <span className="ml-1.5">({spamCount})</span>}
               </Link>
             ))}
           </div>
+
+          {selected.size > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2">
+              <div className="text-xs font-medium">{selected.size} selected</div>
+              <div className="flex gap-2">
+                <button disabled={bulk.isPending} onClick={() => bulk.mutate("approve")} className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60">
+                  {bulk.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+                </button>
+                <button disabled={bulk.isPending} onClick={() => bulk.mutate("unapprove")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs disabled:opacity-60">
+                  Unapprove
+                </button>
+                <button disabled={bulk.isPending} onClick={() => confirm(`Delete ${selected.size} comments?`) && bulk.mutate("delete")} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-60">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+                <button onClick={() => setSelected(new Set())} className="text-xs text-muted-foreground hover:text-foreground px-2">Clear</button>
+              </div>
+            </div>
+          )}
 
           <div className="vault-card rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
+                  <th className="text-left p-3 w-8">
+                    <input type="checkbox" aria-label="Select all" checked={filteredComments.length > 0 && selected.size === filteredComments.length} onChange={toggleAll} className="h-4 w-4" />
+                  </th>
                   <th className="text-left p-3">Author</th>
                   <th className="text-left p-3">Prompt</th>
                   <th className="text-left p-3">Comment</th>
@@ -169,10 +191,11 @@ function Page() {
               </thead>
               <tbody>
                 {comments.isLoading && !comments.data && (
-                  <tr><td colSpan={6} className="p-0"><AdminTableSkeleton rows={5} cols={6} /></td></tr>
+                  <tr><td colSpan={7} className="p-0"><AdminTableSkeleton rows={5} cols={7} /></td></tr>
                 )}
                 {filteredComments.map((c: any) => (
                   <tr key={c.id} className="border-t border-border/60 align-top">
+                    <td className="p-3"><input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleOne(c.id)} className="h-4 w-4" /></td>
                     <td className="p-3">
                       <div className="font-medium">{c.author_name}</div>
                       {c.ip_address && <div className="text-xs text-muted-foreground font-mono">{c.ip_address}</div>}
@@ -223,7 +246,7 @@ function Page() {
                   </tr>
                 ))}
                 {filteredComments.length === 0 && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No comments.</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No comments.</td></tr>
                 )}
               </tbody>
             </table>
