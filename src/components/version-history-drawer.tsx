@@ -99,7 +99,7 @@ export function VersionHistoryDrawer({
                       onClick={() => setSelectedId(v.id)}
                       className={`w-full text-left px-4 py-3 border-b border-border/60 transition-colors ${isActive ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-secondary/40"}`}
                     >
-                      <div className="text-xs font-medium">{new Date(v.changed_at).toLocaleString()}</div>
+                      <div className="text-xs font-medium">{v.changed_at ? new Date(v.changed_at).toLocaleString() : "—"}</div>
                       {v.change_note && <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{v.change_note}</div>}
                     </button>
                   );
@@ -112,7 +112,7 @@ export function VersionHistoryDrawer({
                   <>
                     <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
                       <div className="text-xs text-muted-foreground truncate">
-                        {new Date(selected.changed_at).toLocaleString()}
+                        {selected.changed_at ? new Date(selected.changed_at).toLocaleString() : "—"}
                       </div>
                       <button
                         disabled={restore.isPending}
