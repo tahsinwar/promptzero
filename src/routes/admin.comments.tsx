@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle, Loader2 } from "lucide-react";
+import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle, Loader2, AlertTriangle } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/admin-skeletons";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
@@ -10,7 +10,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 
 const search = z.object({
   tab: fallback(z.enum(["comments", "questions"]), "comments").default("comments"),
-  filter: fallback(z.enum(["all", "pending", "approved"]), "all").default("all"),
+  filter: fallback(z.enum(["all", "pending", "approved", "spam"]), "all").default("all"),
 });
 
 export const Route = createFileRoute("/admin/comments")({
@@ -77,10 +77,57 @@ function Page() {
 
   const filteredComments = useMemo(() => {
     const list = comments.data ?? [];
+    const spamKeywords: string[] = ((settings.data?.settings as any)?.spam_keywords as string[]) ?? [];
+    const isSpam = (c: any) => {
+      if (!spamKeywords.length) return false;
+      const text = `${c.content ?? ""} ${c.author_name ?? ""}`.toLowerCase();
+      return spamKeywords.some((k) => k && text.includes(k.toLowerCase()));
+    };
+    if (filter === "spam") return list.filter(isSpam);
     if (filter === "pending") return list.filter((c: any) => !c.is_approved);
     if (filter === "approved") return list.filter((c: any) => c.is_approved);
     return list;
-  }, [comments.data, filter]);
+  }, [comments.data, filter, settings.data]);
+
+  const spamCount = useMemo(() => {
+    const list = comments.data ?? [];
+    const spamKeywords: string[] = ((settings.data?.settings as any)?.spam_keywords as string[]) ?? [];
+    if (!spamKeywords.length) return 0;
+    return list.filter((c: any) => {
+      const text = `${c.content ?? ""} ${c.author_name ?? ""}`.toLowerCase();
+      return spamKeywords.some((k) => k && text.includes(k.toLowerCase()));
+    }).length;
+  }, [comments.data, settings.data]);
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleOne = (id: string) => {
+    setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleAll = () => {
+    setSelected((s) => s.size === filteredComments.length ? new Set() : new Set(filteredComments.map((c: any) => c.id)));
+  };
+
+  const bulk = useMutation({
+    mutationFn: async (action: "approve" | "delete" | "unapprove") => {
+      const ids = Array.from(selected);
+      if (!ids.length) throw new Error("Nothing selected");
+      if (action === "delete") {
+        const { error } = await supabase.from("comments").delete().in("id", ids);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("comments").update({ is_approved: action === "approve" }).in("id", ids);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, action) => {
+      qc.invalidateQueries({ queryKey: ["admin-comments"] });
+      qc.invalidateQueries({ queryKey: ["admin-pending-comments"] });
+      toast.success(`Bulk ${action} done`);
+      setSelected(new Set());
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   return (
     <div>
@@ -95,7 +142,7 @@ function Page() {
       {tab === "comments" ? (
         <>
           <div className="flex gap-2 mb-4">
-            {(["all", "pending", "approved"] as const).map((f) => (
+            {(["all", "pending", "approved", "spam"] as const).map((f) => (
               <Link
                 key={f}
                 to="/admin/comments"
@@ -104,14 +151,36 @@ function Page() {
               >
                 {f[0].toUpperCase() + f.slice(1)}
                 {f === "pending" && pendingC > 0 && <span className="ml-1.5">({pendingC})</span>}
+                {f === "spam" && spamCount > 0 && <span className="ml-1.5">({spamCount})</span>}
               </Link>
             ))}
           </div>
+
+          {selected.size > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2">
+              <div className="text-xs font-medium">{selected.size} selected</div>
+              <div className="flex gap-2">
+                <button disabled={bulk.isPending} onClick={() => bulk.mutate("approve")} className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60">
+                  {bulk.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+                </button>
+                <button disabled={bulk.isPending} onClick={() => bulk.mutate("unapprove")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs disabled:opacity-60">
+                  Unapprove
+                </button>
+                <button disabled={bulk.isPending} onClick={() => confirm(`Delete ${selected.size} comments?`) && bulk.mutate("delete")} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-60">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+                <button onClick={() => setSelected(new Set())} className="text-xs text-muted-foreground hover:text-foreground px-2">Clear</button>
+              </div>
+            </div>
+          )}
 
           <div className="vault-card rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
+                  <th className="text-left p-3 w-8">
+                    <input type="checkbox" aria-label="Select all" checked={filteredComments.length > 0 && selected.size === filteredComments.length} onChange={toggleAll} className="h-4 w-4" />
+                  </th>
                   <th className="text-left p-3">Author</th>
                   <th className="text-left p-3">Prompt</th>
                   <th className="text-left p-3">Comment</th>
@@ -122,10 +191,11 @@ function Page() {
               </thead>
               <tbody>
                 {comments.isLoading && !comments.data && (
-                  <tr><td colSpan={6} className="p-0"><AdminTableSkeleton rows={5} cols={6} /></td></tr>
+                  <tr><td colSpan={7} className="p-0"><AdminTableSkeleton rows={5} cols={7} /></td></tr>
                 )}
                 {filteredComments.map((c: any) => (
                   <tr key={c.id} className="border-t border-border/60 align-top">
+                    <td className="p-3"><input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleOne(c.id)} className="h-4 w-4" /></td>
                     <td className="p-3">
                       <div className="font-medium">{c.author_name}</div>
                       {c.ip_address && <div className="text-xs text-muted-foreground font-mono">{c.ip_address}</div>}
@@ -176,7 +246,7 @@ function Page() {
                   </tr>
                 ))}
                 {filteredComments.length === 0 && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No comments.</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No comments.</td></tr>
                 )}
               </tbody>
             </table>

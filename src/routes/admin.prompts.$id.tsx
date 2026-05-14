@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
-import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2, Bold, Italic, Heading1, Heading2, Code, Code2, Link as LinkIcon, List, ListOrdered, Quote, Strikethrough, HelpCircle } from "lucide-react";
+import { Save, ArrowLeft, Plus, Trash2, Copy as CopyIcon, X, Loader2, Share2, Globe, EyeOff, ChevronUp, ChevronDown, Info, AlertTriangle, GripVertical, Wand2, Undo2, Bold, Italic, Heading1, Heading2, Code, Code2, Link as LinkIcon, List, ListOrdered, Quote, Strikethrough, HelpCircle, History } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Eye } from "lucide-react";
 import { AdminFormSkeleton } from "@/components/admin-skeletons";
 import { ShareModal } from "@/components/share-modal";
+import { VersionHistoryDrawer } from "@/components/version-history-drawer";
 import { toast } from "sonner";
 import bcrypt from "bcryptjs";
 
@@ -82,6 +83,7 @@ function EditPrompt() {
   const [subPrompts, setSubPrompts] = useState<SubPrompt[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["categories"], staleTime: 5 * 60 * 1000,
@@ -385,6 +387,11 @@ function EditPrompt() {
                 <Share2 className="h-4 w-4" /> Share
               </button>
             )}
+            {!isNew && id && (
+              <button onClick={() => setHistoryOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary">
+                <History className="h-4 w-4" /> History
+              </button>
+            )}
             {!isNew && (
               <button disabled={remove.isPending} onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 text-destructive px-3 py-2 text-sm hover:bg-destructive/10 disabled:opacity-60">
                 <Trash2 className="h-4 w-4" /> Delete
@@ -561,6 +568,13 @@ function EditPrompt() {
         title={form.title}
         onClose={() => setShareOpen(false)}
       />
+      {!isNew && id && (
+        <VersionHistoryDrawer
+          promptId={id}
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ type Settings = {
   comment_auto_approve?: boolean;
   accent_color?: string;
   blocked_ips?: string[];
+  spam_keywords?: string[];
 };
 
 function applyAccent(color?: string) {
@@ -136,6 +137,18 @@ function Page() {
               </span>
             ))}
           </div>
+        </div>
+
+        <div>
+          <span className="text-xs text-muted-foreground uppercase tracking-wider">Spam keywords</span>
+          <textarea
+            value={(s.spam_keywords ?? []).join(", ")}
+            onChange={(e) => setS({ ...s, spam_keywords: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })}
+            rows={2}
+            placeholder="e.g. casino, viagra, click here"
+            className="mt-1 w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary resize-none"
+          />
+          <span className="mt-1 block text-xs text-muted-foreground">Comma-separated. Comments containing any of these will appear in the Spam tab.</span>
         </div>
 
         <div className="pt-2">
