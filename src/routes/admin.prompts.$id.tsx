@@ -568,6 +568,13 @@ function EditPrompt() {
         title={form.title}
         onClose={() => setShareOpen(false)}
       />
+      {!isNew && id && (
+        <VersionHistoryDrawer
+          promptId={id}
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 }
