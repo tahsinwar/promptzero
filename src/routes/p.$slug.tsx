@@ -1009,6 +1009,9 @@ function useThrottledNumber(value: number, delay = 220) {
 // One shared formatter — locale-stable group + decimal separators across renders
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 
+const STABLE_PARTS_CACHE_MAX = 256;
+const stablePartsCache = new Map<number, NumberPart[]>();
+
 type NumberPart = {
   /** position-from-right key for digit columns; stable across length changes */
   key: string;
