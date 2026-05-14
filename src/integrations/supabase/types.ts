@@ -107,6 +107,36 @@ export type Database = {
           },
         ]
       }
+      pin_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          ip_address: string | null
+          prompt_id: string | null
+          prompt_slug: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          ip_address?: string | null
+          prompt_id?: string | null
+          prompt_slug?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          ip_address?: string | null
+          prompt_id?: string | null
+          prompt_slug?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       prompt_links: {
         Row: {
           description: string | null
