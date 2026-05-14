@@ -1019,6 +1019,8 @@ type NumberPart = {
 };
 
 function toStableParts(value: number): NumberPart[] {
+  const cached = stablePartsCache.get(value);
+  if (cached) return cached;
   const parts = numberFormatter.formatToParts(value);
   const out: NumberPart[] = [];
   // Walk integer + decimal independently so position keys stay anchored at the
@@ -1058,6 +1060,13 @@ function toStableParts(value: number): NumberPart[] {
     }
   }
 
+  // Bounded LRU-ish cache: counters cycle through a small set of values, so a
+  // simple Map with FIFO eviction is plenty and avoids re-walking formatToParts.
+  if (stablePartsCache.size >= STABLE_PARTS_CACHE_MAX) {
+    const firstKey = stablePartsCache.keys().next().value;
+    if (firstKey !== undefined) stablePartsCache.delete(firstKey);
+  }
+  stablePartsCache.set(value, out);
   return out;
 }
 
