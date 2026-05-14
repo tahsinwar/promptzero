@@ -1009,6 +1009,9 @@ function useThrottledNumber(value: number, delay = 220) {
 // One shared formatter — locale-stable group + decimal separators across renders
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 
+const STABLE_PARTS_CACHE_MAX = 256;
+const stablePartsCache = new Map<number, NumberPart[]>();
+
 type NumberPart = {
   /** position-from-right key for digit columns; stable across length changes */
   key: string;
@@ -1019,6 +1022,8 @@ type NumberPart = {
 };
 
 function toStableParts(value: number): NumberPart[] {
+  const cached = stablePartsCache.get(value);
+  if (cached) return cached;
   const parts = numberFormatter.formatToParts(value);
   const out: NumberPart[] = [];
   // Walk integer + decimal independently so position keys stay anchored at the
@@ -1058,6 +1063,13 @@ function toStableParts(value: number): NumberPart[] {
     }
   }
 
+  // Bounded LRU-ish cache: counters cycle through a small set of values, so a
+  // simple Map with FIFO eviction is plenty and avoids re-walking formatToParts.
+  if (stablePartsCache.size >= STABLE_PARTS_CACHE_MAX) {
+    const firstKey = stablePartsCache.keys().next().value;
+    if (firstKey !== undefined) stablePartsCache.delete(firstKey);
+  }
+  stablePartsCache.set(value, out);
   return out;
 }
 
@@ -1092,7 +1104,7 @@ function RollingNumber({ value }: { value: number }) {
     );
   }
 
-  const parts = toStableParts(renderValue);
+  const parts = useMemo(() => toStableParts(renderValue), [renderValue]);
 
   return (
     <span
