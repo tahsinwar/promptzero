@@ -1104,7 +1104,7 @@ function RollingNumber({ value }: { value: number }) {
     );
   }
 
-  const parts = toStableParts(renderValue);
+  const parts = useMemo(() => toStableParts(renderValue), [renderValue]);
 
   return (
     <span
