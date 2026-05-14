@@ -1214,7 +1214,7 @@ function ReadingProgressBar() {
       className="fixed inset-x-0 top-0 z-50 h-1 bg-transparent print:hidden pointer-events-none"
     >
       <div
-        className="h-full bg-gradient-to-r from-primary via-accent to-fuchsia-500 transition-[width] duration-150 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+        className="h-full bg-gradient-to-r from-primary via-accent to-primary transition-[width] duration-150 ease-out shadow-glow"
         style={{ width: `${progress}%` }}
       />
     </div>
