@@ -1157,3 +1157,41 @@ function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number
     </span>
   );
 }
+
+function ReadingProgressBar() {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      const scrollTop = window.scrollY || doc.scrollTop;
+      const max = (doc.scrollHeight || 0) - window.innerHeight;
+      const pct = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0;
+      setProgress(pct);
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+  return (
+    <div
+      aria-hidden
+      className="fixed inset-x-0 top-0 z-50 h-1 bg-transparent print:hidden pointer-events-none"
+    >
+      <div
+        className="h-full bg-gradient-to-r from-primary via-accent to-fuchsia-500 transition-[width] duration-150 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
