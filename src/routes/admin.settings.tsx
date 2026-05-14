@@ -17,6 +17,7 @@ type Settings = {
   comment_auto_approve?: boolean;
   accent_color?: string;
   blocked_ips?: string[];
+  spam_keywords?: string[];
 };
 
 function applyAccent(color?: string) {
