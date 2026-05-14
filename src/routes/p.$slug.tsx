@@ -1076,9 +1076,15 @@ function RollingNumber({ value }: { value: number }) {
   const safeValue = isValid ? value : 0;
   const display = useThrottledNumber(safeValue);
   const lastGoodRef = useRef<number | null>(isValid ? value : null);
+  const prevRef = useRef(display);
   if (isValid) lastGoodRef.current = display;
+  const renderValue = isValid ? display : lastGoodRef.current;
+  const direction = (renderValue ?? 0) >= prevRef.current ? 1 : -1;
+  useEffect(() => {
+    if (renderValue !== null) prevRef.current = renderValue;
+  }, [renderValue]);
 
-  if (!isValid && lastGoodRef.current === null) {
+  if (renderValue === null) {
     return (
       <span className="inline-flex tabular-nums align-baseline" aria-label="unavailable">
         —
@@ -1086,16 +1092,12 @@ function RollingNumber({ value }: { value: number }) {
     );
   }
 
-  const prevRef = useRef(display);
-  const direction = display >= prevRef.current ? 1 : -1;
-  useEffect(() => { prevRef.current = display; }, [display]);
-
-  const parts = toStableParts(display);
+  const parts = toStableParts(renderValue);
 
   return (
     <span
       className="inline-flex tabular-nums align-baseline"
-      aria-label={numberFormatter.format(display)}
+      aria-label={numberFormatter.format(renderValue)}
     >
       {parts.map((p) =>
         p.isDigit ? (
