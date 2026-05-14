@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Delete, Loader2 } from "lucide-react";
 import bcrypt from "bcryptjs";
+import { supabase } from "@/integrations/supabase/client";
+
+async function logPinAttempt(promptId: string, success: boolean) {
+  try {
+    await supabase.from("pin_attempts").insert({
+      prompt_id: promptId,
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : null,
+      success,
+    });
+  } catch { /* noop */ }
+}
 
 const STORAGE_KEY = "unlocked_prompts";
 const LOCKOUT_KEY = "pin_lockout_until";
@@ -88,6 +99,8 @@ export function PinLockModal({
     } catch { ok = false; }
     setVerifying(false);
     submittingRef.current = false;
+    // fire-and-forget logging
+    void logPinAttempt(promptId, ok);
     if (ok) {
       markUnlocked(promptId);
       setPin(""); setError(null); setAttempts(0);
