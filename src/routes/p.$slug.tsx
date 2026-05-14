@@ -1161,7 +1161,8 @@ function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number
 function ReadingProgressBar() {
   const [progress, setProgress] = useState(0);
   const location = useLocation();
-  const pathKey = location.pathname + location.search + location.hash;
+  // location.search is a parsed object in TanStack Router — stringify safely.
+  const pathKey = location.href ?? location.pathname;
   useEffect(() => {
     let raf = 0;
     let cancelled = false;
