@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, Share2, Globe, EyeOff, Download, FileArchive, Lock } from "lucide-react";
 import JSZip from "jszip";
 import { toast } from "sonner";
 import { slugify } from "@/lib/slug";
@@ -276,7 +276,7 @@ function PromptsList() {
       const to = from + PAGE_SIZE - 1;
       let q = supabase
         .from("prompts")
-        .select("id,title,slug,status,is_published,copy_count,created_at,category_id, categories(name,color)", { count: "exact" })
+        .select("id,title,slug,status,is_published,is_locked,pin_hash,copy_count,created_at,category_id, categories(name,color)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
       if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
@@ -526,7 +526,17 @@ function PromptsList() {
                 <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/20">
                   <td className="px-3 py-2.5"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSel(p.id)} /></td>
                   <td className="px-3 py-2.5">
-                    <Link to="/admin/prompts/$id" params={{ id: p.id }} className="font-medium hover:text-primary">{p.title}</Link>
+                    <div className="flex items-center gap-2">
+                      <Link to="/admin/prompts/$id" params={{ id: p.id }} className="font-medium hover:text-primary">{p.title}</Link>
+                      {(p.is_locked || p.pin_hash) && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400"
+                          title="PIN-locked prompt"
+                        >
+                          <Lock className="h-3 w-3" /> Locked
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">/{p.slug}</div>
                   </td>
                   <td className="px-3 py-2.5">
