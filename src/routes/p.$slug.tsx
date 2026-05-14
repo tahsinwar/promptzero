@@ -1,4 +1,4 @@
-import { createFileRoute, notFound, Link } from "@tanstack/react-router";
+import { createFileRoute, notFound, Link, useLocation } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1160,29 +1160,53 @@ function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number
 
 function ReadingProgressBar() {
   const [progress, setProgress] = useState(0);
+  const location = useLocation();
+  const pathKey = location.pathname + location.search + location.hash;
   useEffect(() => {
     let raf = 0;
+    let cancelled = false;
     const update = () => {
       raf = 0;
+      if (cancelled) return;
       const doc = document.documentElement;
       const scrollTop = window.scrollY || doc.scrollTop;
       const max = (doc.scrollHeight || 0) - window.innerHeight;
       const pct = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0;
       setProgress(pct);
     };
-    const onScroll = () => {
+    const schedule = () => {
       if (raf) return;
       raf = requestAnimationFrame(update);
     };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    // Reset immediately on route/content key change, then sync after layout settles.
+    setProgress(0);
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    // Observe layout changes (content updates, image loads, dynamic sections).
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(schedule);
+      ro.observe(document.documentElement);
+      if (document.body) ro.observe(document.body);
+    }
+    // Observe DOM mutations as a fallback for content swaps.
+    const mo =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(schedule)
+        : null;
+    if (mo && document.body) {
+      mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
     return () => {
+      cancelled = true;
       if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (ro) ro.disconnect();
+      if (mo) mo.disconnect();
     };
-  }, []);
+  }, [pathKey]);
   return (
     <div
       aria-hidden
