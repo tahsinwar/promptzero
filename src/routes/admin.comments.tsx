@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle, Loader2 } from "lucide-react";
+import { Check, Pin, Trash2, Ban, Send, MessageSquare, HelpCircle, Loader2, AlertTriangle } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/admin-skeletons";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
@@ -10,7 +10,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 
 const search = z.object({
   tab: fallback(z.enum(["comments", "questions"]), "comments").default("comments"),
-  filter: fallback(z.enum(["all", "pending", "approved"]), "all").default("all"),
+  filter: fallback(z.enum(["all", "pending", "approved", "spam"]), "all").default("all"),
 });
 
 export const Route = createFileRoute("/admin/comments")({
@@ -77,10 +77,57 @@ function Page() {
 
   const filteredComments = useMemo(() => {
     const list = comments.data ?? [];
+    const spamKeywords: string[] = ((settings.data?.settings as any)?.spam_keywords as string[]) ?? [];
+    const isSpam = (c: any) => {
+      if (!spamKeywords.length) return false;
+      const text = `${c.content ?? ""} ${c.author_name ?? ""}`.toLowerCase();
+      return spamKeywords.some((k) => k && text.includes(k.toLowerCase()));
+    };
+    if (filter === "spam") return list.filter(isSpam);
     if (filter === "pending") return list.filter((c: any) => !c.is_approved);
     if (filter === "approved") return list.filter((c: any) => c.is_approved);
     return list;
-  }, [comments.data, filter]);
+  }, [comments.data, filter, settings.data]);
+
+  const spamCount = useMemo(() => {
+    const list = comments.data ?? [];
+    const spamKeywords: string[] = ((settings.data?.settings as any)?.spam_keywords as string[]) ?? [];
+    if (!spamKeywords.length) return 0;
+    return list.filter((c: any) => {
+      const text = `${c.content ?? ""} ${c.author_name ?? ""}`.toLowerCase();
+      return spamKeywords.some((k) => k && text.includes(k.toLowerCase()));
+    }).length;
+  }, [comments.data, settings.data]);
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleOne = (id: string) => {
+    setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleAll = () => {
+    setSelected((s) => s.size === filteredComments.length ? new Set() : new Set(filteredComments.map((c: any) => c.id)));
+  };
+
+  const bulk = useMutation({
+    mutationFn: async (action: "approve" | "delete" | "unapprove") => {
+      const ids = Array.from(selected);
+      if (!ids.length) throw new Error("Nothing selected");
+      if (action === "delete") {
+        const { error } = await supabase.from("comments").delete().in("id", ids);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("comments").update({ is_approved: action === "approve" }).in("id", ids);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, action) => {
+      qc.invalidateQueries({ queryKey: ["admin-comments"] });
+      qc.invalidateQueries({ queryKey: ["admin-pending-comments"] });
+      toast.success(`Bulk ${action} done`);
+      setSelected(new Set());
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   return (
     <div>
