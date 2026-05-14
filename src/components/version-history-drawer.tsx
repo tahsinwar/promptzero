@@ -116,7 +116,7 @@ export function VersionHistoryDrawer({
                       </div>
                       <button
                         disabled={restore.isPending}
-                        onClick={() => { if (confirm("Restore this version? Current content will be snapshotted first.")) restore.mutate(selected.id); }}
+                        onClick={() => { if (selected?.id && confirm("Restore this version? Current content will be snapshotted first.")) restore.mutate(selected.id); }}
                         className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
                       >
                         {restore.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
