@@ -206,6 +206,7 @@ function PromptDetail() {
 
   return (
     <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-8 print:py-0 print:max-w-full">
+      <ReadingProgressBar />
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden print:hidden" aria-hidden>
         <div className="orb orb-purple absolute -top-20 -left-20 h-80 w-80 rounded-full bg-primary/20 blur-3xl" />
         <div className="orb orb-cyan absolute top-40 -right-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
@@ -1154,5 +1155,43 @@ function LiveStat({ icon, value, label }: { icon: React.ReactNode; value: number
       <RollingNumber value={value} />
       {" "}{label}
     </span>
+  );
+}
+
+function ReadingProgressBar() {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      const scrollTop = window.scrollY || doc.scrollTop;
+      const max = (doc.scrollHeight || 0) - window.innerHeight;
+      const pct = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0;
+      setProgress(pct);
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+  return (
+    <div
+      aria-hidden
+      className="fixed inset-x-0 top-0 z-50 h-1 bg-transparent print:hidden pointer-events-none"
+    >
+      <div
+        className="h-full bg-gradient-to-r from-primary via-accent to-fuchsia-500 transition-[width] duration-150 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
   );
 }
