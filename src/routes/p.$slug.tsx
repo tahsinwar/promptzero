@@ -1069,7 +1069,23 @@ function toStableParts(value: number): NumberPart[] {
  * shift fractional digits.
  */
 function RollingNumber({ value }: { value: number }) {
-  const display = useThrottledNumber(value);
+  // Guard against NaN/Infinity (e.g. transient bad realtime payload or division-by-zero).
+  // Fall back to the last good value so the UI doesn't flash a placeholder; if we never
+  // had one, render a neutral em-dash.
+  const isValid = Number.isFinite(value);
+  const safeValue = isValid ? value : 0;
+  const display = useThrottledNumber(safeValue);
+  const lastGoodRef = useRef<number | null>(isValid ? value : null);
+  if (isValid) lastGoodRef.current = display;
+
+  if (!isValid && lastGoodRef.current === null) {
+    return (
+      <span className="inline-flex tabular-nums align-baseline" aria-label="unavailable">
+        —
+      </span>
+    );
+  }
+
   const prevRef = useRef(display);
   const direction = display >= prevRef.current ? 1 : -1;
   useEffect(() => { prevRef.current = display; }, [display]);
